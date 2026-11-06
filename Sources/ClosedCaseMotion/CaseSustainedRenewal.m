@@ -118,9 +118,8 @@ static BOOL motionOnStdout=NO;
 // recorded even while the main thread is inside a synchronous Bluetooth call).
 // The main thread notices it within one 20-50 ms pump and runs the ordinary
 // cleanup path with shortened waits, then returns SIGNALED.
-// Repeated signals are expected (the app re-sends SIGTERM on every tick once a
-// stop is 8 s old), so only the first one counts and later ones never cut the
-// cleanup short. Because SIGTERM no longer kills the process outright, a
+// The app sends one SIGTERM, 3 s after a stop. Only the first signal counts, so
+// a repeat from anywhere else never cuts the cleanup short. Because SIGTERM no longer kills the process outright, a
 // watchdog armed by that first signal exits with CLEANUP_TIMEOUT if the main
 // thread is still busy 30 s later (longer than the worst-case link restore of
 // about 23 s, so it only fires when the main thread is really stuck).
@@ -686,8 +685,8 @@ static uint16_t nextIdentifier(uint16_t current) {return current==UINT16_MAX ? 1
 // distinguish Abandon from completion, so staged analytics are consumed.
 // Skipping the Abandon would leave the case's own 480 s active-transfer watchdog to end the transfer on
 // its "unsuccessful, restore the records" path, but the case would stay awake
-// until then; that trade is the product owner's. The same watchdog may also
-// end a held asset during a session longer than 8 minutes (not yet measured).
+// until then; that trade is the product owner's. Sessions on the tested pair ran
+// past that watchdog while holding the asset, to about 30 minutes.
 - (void)beginCleanup:(double)now {
     self.cleanupStarted=YES;if(!self.accepted || !self.caseActive) return;
     uint8_t body[]={self.assetID>>8,self.assetID,0,3};
@@ -704,12 +703,16 @@ static NSData *varintData(uint32_t value) {
 // The sequence carries on across sessions, so it lives in the app's data folder,
 // beside the target file rather than wherever the helper happened to be started.
 static NSString *sensorSequencePath=nil;
+// Set only when the file couldn't be written, so one session never repeats a number.
+static unsigned unsavedSensorSequence=0;
 static NSData *sensorSetting(uint8_t service,uint32_t interval) {
     NSString *path=sensorSequencePath;
     NSString *saved=[NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
-    unsigned sequence=[saved intValue];
+    unsigned sequence=unsavedSensorSequence?:[saved intValue];
     sequence=sequence<8000 || sequence>=16000 ? 8001 : sequence+1;
-    [[NSString stringWithFormat:@"%u",sequence] writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    BOOL written=[[NSString stringWithFormat:@"%u",sequence] writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    unsavedSensorSequence=written?0:sequence;
+    if(!written) printf("sensor sequence not saved\n");
     uint8_t setting[]={8,service,16,2,26,5,1,(uint8_t)interval,(uint8_t)(interval>>8),(uint8_t)(interval>>16),(uint8_t)(interval>>24)};
     uint8_t tag=8;NSMutableData *message=[NSMutableData dataWithBytes:&tag length:1];[message appendData:varintData(sequence)];
     uint8_t field[]={66,sizeof(setting)};[message appendBytes:field length:sizeof(field)];[message appendBytes:setting length:sizeof(setting)];
@@ -756,6 +759,8 @@ static BOOL phaseIsStop(NSURL *phaseURL) {
 }
 static int runPointerSession(CBL2CAPChannel *channel, NSURL *directory) {
     double began=NSProcessInfo.processInfo.systemUptime;
+    // Only bounds setup. The live loop moves this to now+15 on every pass, so a
+    // session has no fixed length here.
     operationDeadline=began+720;
     ConsoleReader *reader=ConsoleReader.new;
     NSInputStream *input=channel.inputStream;NSOutputStream *output=channel.outputStream;
@@ -798,6 +803,7 @@ static int runPointerSession(CBL2CAPChannel *channel, NSURL *directory) {
     if(exitCode) printf("Session setup ended: %s\n",reason.UTF8String);
     NSURL *phaseURL=[directory URLByAppendingPathComponent:@"phase.txt"];
     double nextStatus=0;NSUInteger publishedStates=0;BOOL publishedBaseline=NO;
+    // The deadline moves on every pass, so this only ends a session if one pass stalls for about 9 s.
     while(sensorsStarted && !exitCode && NSProcessInfo.processInfo.systemUptime<operationDeadline-6) { @autoreleasepool {
         if(terminationRequested()) {exitCode=HelperExitSignaled;reason=@"termination signal";break;}
         // Before any write this cycle: a channel the link already closed ends the session as INPUT_ENDED.
@@ -854,7 +860,6 @@ static int runPointerSession(CBL2CAPChannel *channel, NSURL *directory) {
             if(fresh && transfer.rootVerified && !baselineVerified) step("open baseline verified");
             if(fresh && transfer.rootVerified) baselineVerified=YES;
         }
-        if(transfer.closedWindowStarted && now>=operationDeadline-6) {reason=@"confirmed closed deadline with cleanup reserve";break;}
         if(transfer.error) {reason=transfer.error;break;}
         // A new in-case report goes out at once: the app confirms the closed lid from it.
         if(reader.earbudStateEvents.count!=publishedStates) nextStatus=0;
@@ -1155,6 +1160,9 @@ static void hardeningChecks(void) {
     assetOnly.offer=testOffer(9,35);assetOnly.offerMetadata=mticOffer(assetOnly.offer);[assetOnly tick:NSProcessInfo.processInfo.systemUptime];mark=wireLength(assetOnly.output);
     stopSensorsThenRelease(assetOnly.output,assetOnly,NO,NO,&accelStop,&gyroStop);frames=wireFramesSince(assetOnly.output,mark);
     check(frames.count==1 && frameAt(frames,0).childType==9 && !accelStop && !gyroStop,@"sensors that were never started get no STOP; the held asset is still released");
+    sensorSequencePath=@"/nonexistent-closed-case-folder/sequence.txt";
+    check(![sensorSetting(11,5000) isEqualToData:sensorSetting(11,5000)],@"a sequence file that can't be written never repeats a number");
+    unsavedSensorSequence=0;
     [NSFileManager.defaultManager removeItemAtPath:sequenceFile error:nil];sensorSequencePath=nil;
 
     // Stop requests written while the helper starts are honoured, not overwritten.
@@ -1174,7 +1182,7 @@ static void hardeningChecks(void) {
         while(!terminationRequested() && NSProcessInfo.processInfo.systemUptime<until) pump(.01);
         check(atomic_load(&terminationSignal)==signals[i] && terminationNoticedAt>0,[NSString stringWithFormat:@"signal %d runs the cleanup path instead of terminating",signals[i]]);
         kill(getpid(),SIGINT);pump(.05);
-        check(atomic_load(&terminationSignal)==signals[i],@"a repeated signal (the app re-sends SIGTERM every tick) cannot restart or cut the cleanup");
+        check(atomic_load(&terminationSignal)==signals[i],@"a repeated signal cannot restart or cut the cleanup");
     }
     resetTerminationForTest();
     // Watchdog, in a child copy of this binary in a self-test-only mode (no

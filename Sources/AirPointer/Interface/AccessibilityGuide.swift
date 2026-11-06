@@ -32,8 +32,10 @@ final class AccessibilityGuide {
             if ProcessInfo.processInfo.systemUptime-openedAt>Self.giveUpAfter{stop()}else{panel.orderOut(nil)}
             return
         }
+        // Only list windows while System Settings is in front, since the panel has nothing to follow otherwise.
+        guard app.isActive else{panel.orderOut(nil);return}
         let windows=CGWindowListCopyWindowInfo([.optionOnScreenOnly,.excludeDesktopElements],kCGNullWindowID) as? [[String:Any]] ?? []
-        guard app.isActive,let settings=Self.settingsWindow(in:windows,owner:app.processIdentifier,primaryHeight:NSScreen.screens.first?.frame.maxY ?? 0) else{
+        guard let settings=Self.settingsWindow(in:windows,owner:app.processIdentifier,primaryHeight:NSScreen.screens.first?.frame.maxY ?? 0) else{
             panel.orderOut(nil);return
         }
         let frame=Self.placement(settings)

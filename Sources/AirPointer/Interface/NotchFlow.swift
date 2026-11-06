@@ -195,7 +195,12 @@ final class NotchSurface:NSView {
     func show(_ content:NotchContent,fade:Bool) {
         art.step=content.step;rkSetText(title,content.title);rkSetText(detail,content.detail)
         progress.filled=content.progress;progress.isHidden=content.progress==nil;dot.isHidden = !content.live
-        setAccessibilityValue(content.title+". "+content.detail)
+        let spoken=content.title+". "+content.detail
+        // The notch never takes focus, so VoiceOver only hears a new step if it's announced.
+        if accessibilityValue() as? String != spoken{
+            NSAccessibility.post(element:NSApp as Any,notification:.announcementRequested,userInfo:[.announcement:spoken,.priority:NSAccessibilityPriorityLevel.high.rawValue])
+        }
+        setAccessibilityValue(spoken)
         needsLayout=true
         if fade{contents.alphaValue=0.15;NSAnimationContext.runAnimationGroup{context in context.duration=0.18;contents.animator().alphaValue=1}}
     }

@@ -21,6 +21,7 @@
 | **AirPods settings** | Some AirPods connection settings stay as the session set them. We do not know yet if this change, or the case data change, lasts after the Bluetooth link resets. |
 | **Audio** | Each connection drops the AirPods' Bluetooth link for a moment, and their audio stops. Do not connect during a call. |
 | **Microphone** | During a session, the app keeps Mac sound and the microphone off all AirPods. It restores them when the session ends. |
+| **Silent audio** | During a session, the app plays silence to the AirPods to keep their audio link active. You do not hear it. |
 | **Cursor size** | A cursor smaller than 2× grows to 2× while you point. It returns to its size when you pause or disconnect. After a force quit, it returns when you next open the app. This uses a private macOS call. |
 
 ## Requirements
@@ -47,7 +48,8 @@ zsh ./build.sh
 open AirPointer.app
 ```
 
-The build also runs the offline checks. Do not build during a pointer session.
+The build also runs `--self-test` and the tap check. The other offline checks are
+under [For developers](#for-developers). Do not build during a pointer session.
 
 If AirPointer does not appear in the Accessibility list after a rebuild, run:
 
@@ -79,7 +81,8 @@ different shortcut, go to Settings.
   <img src="Assets/Readme/screens.png" width="100%" alt="The AirPointer window, the menu bar panel, and the notch while pointing">
 </p>
 
-A session ends 30 minutes after the lid closes. To continue, open and close the lid.
+On the tested AirPods, a session ends about 30 minutes after the lid closes. The app
+does not set this limit. To continue, open and close the lid.
 
 <details>
 <summary><strong>The connect steps as a chart</strong></summary>
@@ -171,7 +174,7 @@ Sources/
     App/               Startup, the link to the windows, and the shortcut
     Session/           The session, motion math, taps, audio guard, cursor size
     Interface/         The window, menu bar, notch, setup and Tap Test
-    Checks/            Offline checks, built into the app
+    Checks/            Window and pose checks; other checks sit beside their code
   ClosedCaseMotion/    The helper that talks to the AirPods
   ClosedCaseRestore/   The helper that brings the Bluetooth link up
 Tests/                 Recorded taps and handling for the tap check
@@ -204,7 +207,7 @@ send any of this anywhere.
 In a session's `native.log`:
 
 - `STEP` lines show the time of each connection step.
-- `HOLD` lines show the motion rate and delay, about once a second.
+- `HOLD` lines show the motion count so far and its delay, about once a second.
 - `tap` lines explain each tap.
 - The `EXIT` line shows why the session ended.
 
@@ -218,8 +221,8 @@ Taps are tuned on one person so far, so your score may differ.
 Connect, then go to **File > Developer > Tap Test**. The test takes about 75
 seconds and tells you when to tap.
 
-To also save a session's raw motion, run this before you connect. A session
-records up to about 20 MB.
+To also save a session's raw motion, run this before you connect. The recording has
+no size limit. Expect roughly 20 MB for a 30-minute session.
 
 ```sh
 defaults write local.airpointer recordMotion -bool true
@@ -230,9 +233,11 @@ defaults write local.airpointer recordMotion -bool true
 <details>
 <summary><strong>Offline checks</strong></summary>
 
-These checks do not use Bluetooth.
+These checks do not use Bluetooth. `--check-home` opens real windows, so run it on
+a logged-in Mac.
 
 ```sh
+AirPointer.app/Contents/MacOS/AirPointer --self-test
 AirPointer.app/Contents/MacOS/AirPointer --check-home
 AirPointer.app/Contents/MacOS/AirPointer --check-pointer-settings
 AirPointer.app/Contents/MacOS/AirPointer --check-closed-case-native
@@ -258,4 +263,4 @@ tccutil reset BluetoothAlways local.airpointer
 
 The code uses the [MIT License](LICENSE). The license does not cover `Assets/`.
 Apple owns the AirPods model that the case images are made from, and the sounds
-have their own license. See [Assets/README.md](Assets/README.md).
+have their own license. See [Assets/LICENSE.md](Assets/LICENSE.md).

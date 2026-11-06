@@ -74,17 +74,25 @@ struct ClosedCaseAirPods:Equatable {
     // Asks the system on a utility queue and answers on the main one; nil when it couldn't be read.
     static func survey(completion:@escaping(Survey?)->Void) {
         DispatchQueue.global(qos:.userInitiated).async{
-            let process=Process(),output=Pipe()
-            process.executableURL=URL(fileURLWithPath:"/usr/sbin/system_profiler")
-            process.arguments=["SPBluetoothDataType","-json"]
-            process.standardOutput=output;process.standardError=FileHandle.nullDevice
-            var result:Survey?
-            if (try? process.run()) != nil {
-                let data=output.fileHandleForReading.readDataToEndOfFile();process.waitUntilExit()
-                if process.terminationStatus==0{result=parse(data)}
-            }
+            let result=toolOutput("/usr/sbin/system_profiler",["SPBluetoothDataType","-json"],timeout:20).flatMap{parse($0)}
             DispatchQueue.main.async{completion(result)}
         }
+    }
+    // A system tool's output, or nil if it fails or outlasts the timeout, so a hung tool can't leave Connect waiting.
+    static func toolOutput(_ path:String,_ arguments:[String],timeout:TimeInterval)->Data? {
+        let process=Process(),output=Pipe()
+        process.executableURL=URL(fileURLWithPath:path);process.arguments=arguments
+        process.standardOutput=output;process.standardError=FileHandle.nullDevice
+        guard (try? process.run()) != nil else{return nil}
+        var data=Data();let finished=DispatchSemaphore(value:0)
+        DispatchQueue.global(qos:.userInitiated).async{
+            data=output.fileHandleForReading.readDataToEndOfFile();process.waitUntilExit();finished.signal()
+        }
+        guard finished.wait(timeout:.now()+timeout) == .success else{
+            if process.isRunning{process.terminate()}
+            return nil
+        }
+        return process.terminationStatus==0 ? data:nil
     }
     static let bluetoothDenied="AirPointer needs Bluetooth to reach your AirPods. Allow it in System Settings → Privacy & Security → Bluetooth, then connect again."
     // ClosedCaseRestore's exit codes, in plain words.
@@ -124,7 +132,7 @@ struct ClosedCaseAirPods:Equatable {
         case 32:return "These earbuds don’t report as AirPods Pro. The closed-case pointer needs AirPods Pro."
         case 34:return "The case didn’t report as an AirPods charging case. Use the case that came with these AirPods, then connect again."
         case 35:return "The charging case stopped responding. Connect again, then open the lid."
-        case 36:return "The charging case wouldn’t stay connected. Open the lid, wait a few seconds, then connect again."
+        case 36:return "The charging case turned down AirPointer’s request. Open the lid, wait a few seconds, then connect again."
         case 40:return "Your AirPods stopped answering. Connect again, then open the lid."
         case 41:return "Your AirPods sent something unexpected, so AirPointer stopped to be safe. Connect again, then open the lid."
         case 42:return "AirPointer couldn’t send to your AirPods. Connect again, then open the lid. If it keeps happening, turn Bluetooth off and on."

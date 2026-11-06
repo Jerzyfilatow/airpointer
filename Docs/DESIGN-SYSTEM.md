@@ -41,7 +41,7 @@ Never show or describe tapping the back of the case, holding the open case uprig
 | Menu-bar popover | Live aim pad, Recenter, Pause, speed, then menu rows: Open AirPointer, Calibrate…, Disconnect (only while the closed case is connected), Settings…, Quit. | 320 wide |
 | Control HUD | A small non-activating capsule: "Pointing", "Paused — reason", "Disconnected — connect again, then open the lid". | 40 tall, ≤ 480 wide |
 | Sheets | Attached to the main window, for a task that starts there. None are in use. | ≈ 420 wide |
-| Developer tools | Keep sound and mic on Mac and the tap test window. Under **File ▸ Developer** only; never linked from the main flows. The test window uses the same parts as the product: a DEVELOPER eyebrow and status chip, a 22 pt title, one primary bottom-right. | 480 × 440 |
+| Developer tools | Keep audio on Mac and the tap test window. Under **File ▸ Developer** only; never linked from the main flows. The test window uses the same parts as the product: a DEVELOPER eyebrow and status chip, a 22 pt title, one primary bottom-right. | 480 × 440 |
 
 A flow should never open a second regular window to finish a task that started in the main window. Use the overlay, a sheet, or the page itself.
 

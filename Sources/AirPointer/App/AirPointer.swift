@@ -99,7 +99,7 @@ final class App: NSObject, NSApplicationDelegate {
         file.addItem(.separator())
         let developer=NSMenu(title:"Developer"),developerItem=NSMenuItem(title:"Developer",action:nil,keyEquivalent:"")
         developerItem.submenu=developer;file.addItem(developerItem)
-        let macAudio=item("Keep sound and mic on Mac",#selector(toggleMacAudioProtection));macAudio.state = .on
+        let macAudio=item("Keep audio on Mac",#selector(toggleMacAudioProtection));macAudio.state = .on
         developer.addItem(macAudio);macAudioProtectionItem=macAudio
         developer.addItem(item("Tap Test…",#selector(showTapTest)))
         let edit=addMenu("Edit")
@@ -177,9 +177,9 @@ if CommandLine.arguments.contains("--check-audio-output-policy") {
 } else if CommandLine.arguments.contains("--self-test") {
     runAudioOutputPolicyChecks()
     let bounds = CGRect(x: -1920, y: 0, width: 1920, height: 1080)
-    precondition(screenPoint(CGPoint(x: 0.5, y: 0.5), bounds: bounds) == CGPoint(x: -960, y: 540))
-    precondition(screenPoint(.zero, bounds: bounds) == CGPoint(x: -1919, y: 1))
-    precondition(screenPoint(CGPoint(x: 1, y: 1), bounds: bounds) == CGPoint(x: -1, y: 1079))
+    selfCheck(screenPoint(CGPoint(x: 0.5, y: 0.5), bounds: bounds) == CGPoint(x: -960, y: 540))
+    selfCheck(screenPoint(.zero, bounds: bounds) == CGPoint(x: -1919, y: 1))
+    selfCheck(screenPoint(CGPoint(x: 1, y: 1), bounds: bounds) == CGPoint(x: -1, y: 1079))
     runPoseChecks()
     do{try runPointerSettingsChecks()}catch{fputs("Pointer settings check failed: \(error.localizedDescription)\n",stderr);exit(1)}
     do{try runClosedCaseStageChecks()}catch{fputs("Closed-case stage check failed: \(error.localizedDescription)\n",stderr);exit(1)}

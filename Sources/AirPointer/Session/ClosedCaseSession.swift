@@ -262,6 +262,10 @@ func runClosedCaseNativeChecks() throws {
     let temporary=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString,isDirectory:true)
     try FileManager.default.createDirectory(at:temporary,withIntermediateDirectories:true)
     defer{try? FileManager.default.removeItem(at:temporary)}
+    guard ClosedCaseAirPods.toolOutput("/bin/echo",["ok"],timeout:5)==Data("ok\n".utf8) else{throw LessonError.message("A system tool’s output should come back.")}
+    guard ClosedCaseAirPods.toolOutput("/usr/bin/false",[],timeout:5)==nil else{throw LessonError.message("A failed system tool should give nothing.")}
+    let toolBegan=ProcessInfo.processInfo.systemUptime
+    guard ClosedCaseAirPods.toolOutput("/bin/sleep",["5"],timeout:0.2)==nil,ProcessInfo.processInfo.systemUptime-toolBegan<2 else{throw LessonError.message("A hung system tool should time out.")}
     let first=Data("1,11,1000000,1,0,0,100000\n".utf8)
     let pipe=Pipe();defer{try? pipe.fileHandleForReading.close();try? pipe.fileHandleForWriting.close()}
     let flags=fcntl(pipe.fileHandleForReading.fileDescriptor,F_GETFL)

@@ -245,7 +245,7 @@ final class AirPointerHome:NSObject,NSWindowDelegate {
     private var controlKey:HomeControlKey?
 
     init(pad:AimPadView=AimPadView()) {
-        self.pad=pad
+        self.pad=pad;pad.setAccessibilityElement(true);pad.setAccessibilityRole(.image)
         window=HomeWindow(contentRect:NSRect(x:0,y:0,width:440,height:700),styleMask:[.titled,.closable,.miniaturizable,.resizable,.fullSizeContentView],backing:.buffered,defer:false)
         super.init()
         window.title="AirPointer";window.titleVisibility = .hidden
@@ -456,7 +456,7 @@ private final class PointerPage:NSObject {
             showingPad=connected
             home.pad.isHidden = !connected;art.isHidden=connected
         }
-        home.pad.live=live
+        home.pad.live=live;home.pad.setAccessibilityLabel(live ? "Pointer preview, live":"Pointer preview")
         let screens=home.pointerSettings.screens
         home.pad.caption=screens.indices.contains(home.pointerSettings.screen) && screens.count>1 ? screens[home.pointerSettings.screen]:""
         // Centered rows live in holders; hiding the holder collapses the row.
