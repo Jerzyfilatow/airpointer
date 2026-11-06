@@ -35,6 +35,7 @@ final class SetupAssistant:NSObject,NSWindowDelegate {
         ("Show it where your screen is","Point at three dots — center, right edge, top edge. Hold still on each and it captures automatically. Keep the grip you’ll use."),
         ("Teach it your tap","Tap the front of the case three times, with a short pause between taps. Hold it the way you’ll point with it."),
     ]
+    private static let connectEffects="Your Mac can’t use your AirPods for audio while connected, so don’t connect during a call. Ending a session uses up diagnostic data on the case and changes some AirPods settings. These changes may last."
     private var state=SetupState()
     private var everConnected=false
     private var helpDue=false
@@ -221,9 +222,11 @@ final class SetupAssistant:NSObject,NSWindowDelegate {
             copy=linkCopy(s.link)
             switch s.link {
             case .idle:
-                caseArt.step = .closed;main=("Connect",.connect);noteText=s.problem
+                caseArt.step = .closed;main=("Connect",.connect);var problem=s.problem
                 // Setup has no Settings to send them to, so the choice comes from here.
-                if s.problem==ClosedCaseAirPods.Choice.several.failure{main=("Choose AirPods…",.chooseAirPods);noteText="More than one pair of AirPods Pro is paired with this Mac. Choose which to use."}
+                if s.problem==ClosedCaseAirPods.Choice.several.failure{main=("Choose AirPods…",.chooseAirPods);problem="More than one pair of AirPods Pro is paired with this Mac. Choose which to use."}
+                // A problem doesn't replace the effects: the person hasn't connected yet.
+                noteText=[problem,Self.connectEffects].compactMap{$0}.joined(separator:"\n\n")
             case .openLid:caseArt.step = .opening;chipText="Waiting for the lid";main=("Connecting…",.none)
             case .connecting:
                 caseArt.step = .open;chipText="Looking for your AirPods…";main=("Connecting…",.none)

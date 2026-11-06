@@ -32,6 +32,14 @@ uses private Apple protocols, so a macOS or AirPods update can stop it working.
 | macOS 14 and 15 | Allowed, not tested |
 | Xcode | Required to build |
 
+Normal connect and disconnect have run many times on that Mac and pair. These
+cases have not been tested on purpose:
+
+- Force quit during a session
+- Sleep and wake during a session
+- Bluetooth lost during a session
+- Calls and audio during and after a session
+
 ## Build and run
 
 ```sh

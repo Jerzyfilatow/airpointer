@@ -201,7 +201,11 @@ func runHomeChecks()throws {
     try require(SetupAssistant.following(0,from:allowed,to:allowed)==nil && SetupAssistant.following(1,from:linked,to:linked)==nil && SetupAssistant.following(2,from:aimed,to:aimed)==nil && SetupAssistant.following(3,from:linked,to:aimed)==nil,"Coming back to a finished step shouldn’t move on by itself")
     var finished=0,listening=0,stoppedListening=0,choosing=0
     assistant.onFinish={finished+=1};assistant.onLearnTap={listening+=1};assistant.onStopLearningTap={stoppedListening+=1};assistant.onChooseAirPods={choosing+=1}
-    assistant.go(to:1);assistant.update(SetupState(link:.idle,problem:ClosedCaseAirPods.Choice.several.failure,accessibilityTrusted:true))
+    func setupSays(_ words:String)->Bool{setupViews().contains{($0 as? NSTextField)?.stringValue.contains(words)==true}}
+    assistant.go(to:1);assistant.update(SetupState(link:.idle,accessibilityTrusted:true))
+    try require(setupSays("diagnostic data") && setupSays("during a call"),"Setup should say what connecting does before anyone connects")
+    assistant.update(SetupState(link:.idle,problem:ClosedCaseAirPods.Choice.several.failure,accessibilityTrusted:true))
+    try require(setupSays("diagnostic data") && setupSays("Choose which to use"),"A problem shouldn’t hide what connecting does")
     let choose=setupViews().compactMap{$0 as? RemoteButton}.first{$0.style == .primary}
     try require(choose?.title=="Choose AirPods…","Several pairs should offer a choice right in setup")
     choose?.performClick(nil)
@@ -305,6 +309,7 @@ func runHomeChecks()throws {
         try windowSnapshot("accessibility-guide",AccessibilityGuide.previewWindow(),.aqua)
         try windowSnapshot("accessibility-guide-dark",AccessibilityGuide.previewWindow(),.darkAqua)
         setup.go(to:1);try windowSnapshot("setup-connect",setup.window,.aqua)
+        setup.update(SetupState(link:.idle,problem:ClosedCaseAirPods.helperFailure(30,stopping:false)));try windowSnapshot("setup-connect-problem",setup.window,.aqua)
         setup.update(SetupState(link:.closeLid));try windowSnapshot("setup-close-lid",setup.window,.darkAqua)
         setup.update(SetupState(link:.turnUpright));try windowSnapshot("setup-turn",setup.window,.aqua)
         setup.update(SetupState(link:.holdStill,holdProgress:0.62));try windowSnapshot("setup-hold-still",setup.window,.aqua)
