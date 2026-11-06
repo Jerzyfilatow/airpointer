@@ -18,7 +18,7 @@ is the X-mirror of the left transform. The result is written to seat.json and
 is embedded as a constant in render-closed-case.py.
 
 /Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup \
-  --threads 8 --python seat-earbuds.py
+  --threads 8 --python Scripts/seat-earbuds.py
 """
 import bpy
 import json
@@ -27,7 +27,7 @@ from pathlib import Path
 from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
 
-root = Path(__file__).resolve().parent
+root = Path(__file__).resolve().parent.parent
 here = root / 'work' / 'case-renders'
 here.mkdir(parents=True, exist_ok=True)
 model = root / 'Assets' / 'airpods-pro.usdz'

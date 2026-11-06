@@ -9,9 +9,9 @@ for frame in Assets/CaseLid/lid-*.png; do cp "$frame" "AirPointer.app/Contents/R
 cp Assets/TapClick/click.wav AirPointer.app/Contents/Resources/TapClick.wav
 cp Assets/NotchShimmer.wav AirPointer.app/Contents/Resources/NotchShimmer.wav
 cp Assets/TapClick/LICENSE-cuelume.txt AirPointer.app/Contents/Resources/LICENSE-cuelume.txt
-clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation -framework CoreBluetooth -framework IOBluetooth ClosedCase/CaseSustainedRenewal.m -o AirPointer.app/Contents/Resources/ClosedCaseMotion.bin
-xcrun swiftc -swift-version 5 -O ClosedCaseRestore.swift -o AirPointer.app/Contents/Resources/ClosedCaseRestore.bin -framework Foundation -framework CoreBluetooth -framework IOBluetooth
-cp ClosedCase/Orientation.js AirPointer.app/Contents/Resources/ClosedCaseOrientation.js
+clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation -framework CoreBluetooth -framework IOBluetooth Sources/ClosedCaseMotion/CaseSustainedRenewal.m -o AirPointer.app/Contents/Resources/ClosedCaseMotion.bin
+xcrun swiftc -swift-version 5 -O Sources/ClosedCaseRestore/ClosedCaseRestore.swift -o AirPointer.app/Contents/Resources/ClosedCaseRestore.bin -framework Foundation -framework CoreBluetooth -framework IOBluetooth
+cp Sources/AirPointer/Session/Orientation.js AirPointer.app/Contents/Resources/ClosedCaseOrientation.js
 # The app finds the paired AirPods itself; no address is built in.
 cat > AirPointer.app/Contents/Info.plist <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -29,7 +29,7 @@ cat > AirPointer.app/Contents/Info.plist <<'PLIST'
 <key>NSBluetoothAlwaysUsageDescription</key><string>AirPointer connects to your paired AirPods to keep motion available with the case closed.</string>
 </dict></plist>
 PLIST
-xcrun swiftc -swift-version 5 "$airpointer_build_mode" AirPointer.swift ClosedCaseSession.swift ClosedCaseTap.swift TapTest.swift ClosedCaseAirPods.swift AudioOutputGuard.swift AppHome.swift AirPointerHome.swift RemoteKit.swift SetupAssistant.swift AccessibilityGuide.swift PointerShortcut.swift CursorSize.swift StatusBarUI.swift NotchFlow.swift HomeChecks.swift MotionLearning.swift CaseLessons.swift Checks.swift -o AirPointer.app/Contents/MacOS/.AirPointer-next -framework AppKit -framework JavaScriptCore -framework QuartzCore -framework ApplicationServices -framework Carbon -framework AVFoundation -framework CoreAudio -framework CoreBluetooth
+xcrun swiftc -swift-version 5 "$airpointer_build_mode" Sources/AirPointer/**/*.swift -o AirPointer.app/Contents/MacOS/.AirPointer-next -framework AppKit -framework JavaScriptCore -framework QuartzCore -framework ApplicationServices -framework Carbon -framework AVFoundation -framework CoreAudio -framework CoreBluetooth
 mv -f AirPointer.app/Contents/MacOS/.AirPointer-next AirPointer.app/Contents/MacOS/AirPointer
 if [[ "$airpointer_signing_identity" != "-" ]]; then
     codesign --force --sign "$airpointer_signing_identity" --timestamp=none --identifier local.airpointer.closed-case-motion AirPointer.app/Contents/Resources/ClosedCaseMotion.bin
@@ -38,4 +38,4 @@ fi
 codesign --force --sign "$airpointer_signing_identity" --timestamp=none AirPointer.app
 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f "$PWD/AirPointer.app"
 AirPointer.app/Contents/MacOS/AirPointer --self-test
-AirPointer.app/Contents/MacOS/AirPointer --check-closed-case-tap ClosedCase/TapFixtures.csv
+AirPointer.app/Contents/MacOS/AirPointer --check-closed-case-tap Tests/TapFixtures.csv

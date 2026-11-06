@@ -14,7 +14,7 @@ above the front so every output can crossfade:
   review/           each still over a light and a dark stage, lid frame strip
 
 /Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup \
-  --threads 8 --python render-closed-case.py
+  --threads 8 --python Scripts/render-closed-case.py
 Optional, after a "--": --only open,closed,pointer,lid,spin,review   --preview
 """
 import bpy
@@ -35,7 +35,7 @@ only = set(args[args.index('--only') + 1].split(',')) if '--only' in args else \
 preview = '--preview' in args
 
 # Renders land in work/ (ignored); the app bundles the copies in Assets/ (see Assets/README.md).
-root = Path(__file__).resolve().parent
+root = Path(__file__).resolve().parent.parent
 out = root / 'work' / 'case-renders' / ('preview' if preview else '')
 (out / 'lid').mkdir(parents=True, exist_ok=True)
 (out / 'spin').mkdir(parents=True, exist_ok=True)

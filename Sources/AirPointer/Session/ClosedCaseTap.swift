@@ -8,7 +8,7 @@ import Foundation
 // turned 28°/s at most, and just before tap-like jolts from moving it 41°/s or more, so turning asks for a firmer, more exact spike.
 // A firm, exact spike with little turning counts even if the hand wasn't quite still. For a second after a tap the hand
 // hasn't settled, so a spike there only has to come without much rotation.
-// The thresholds come from closed-lid taps held in the hand, closed-lid handling and pointing (ClosedCase/TapFixtures.csv)
+// The thresholds come from closed-lid taps held in the hand, closed-lid handling and pointing (Tests/TapFixtures.csv)
 // and from runs of the tap test.
 struct ClosedCaseTapDetector {
     // tap: click where the pointer was before `since` (sensor seconds), and keep it there through the wobble.
