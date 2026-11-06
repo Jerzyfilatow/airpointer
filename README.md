@@ -1,27 +1,27 @@
-# AirPointer
+<p align="center">
+  <img src="Assets/Readme/icon.png" width="112" alt="The AirPointer icon: the closed case, upright, on a dark tile">
+</p>
 
-AirPointer turns AirPods Pro in their closed case into a pointer for your Mac.
-Move the case to move the cursor. Tap the front of the case to click.
+<h1 align="center">AirPointer</h1>
 
-All processing happens on your Mac. The app has no network code.
+<p align="center">
+  <strong>Turn your AirPods case into a pointer for your Mac.</strong><br>
+  Move the closed case to move the cursor. Tap its front to click.
+</p>
+
+<p align="center">
+  <img src="Assets/Readme/connect.gif" width="100%" alt="The connect steps: open the lid, close the lid, turn the case upright, and point">
+</p>
 
 ## Before you use it
 
-AirPointer is an early build. Apple did not make it and does not support it. It
-uses private Apple protocols, so a macOS or AirPods update can stop it working.
-
-- **Case analytics:** Ending a session uses up the diagnostic analytics stored on
-  the case.
-- **AirPods settings:** Some AirPods connection settings stay as the session set
-  them. We do not know yet if this effect, or the analytics effect, continues
-  after the link resets.
-- **Audio:** Each connection drops the AirPods' Bluetooth link for a moment.
-  Audio through the AirPods stops. Do not connect during a call.
-- **Microphone:** During a session, the app keeps Mac sound and the microphone off
-  all AirPods. The app restores them when the session ends.
-- **Cursor size:** A cursor smaller than 2× grows to 2× while you point. It returns
-  to its size when you pause or disconnect. After a force quit, it returns when
-  you next open the app. This uses a private macOS call.
+| Effect | What happens |
+|---|---|
+| **Case data** | Ending a session uses up the diagnostic data stored on the case. |
+| **AirPods settings** | Some AirPods connection settings stay as the session set them. We do not know yet if this change, or the case data change, lasts after the Bluetooth link resets. |
+| **Audio** | Each connection drops the AirPods' Bluetooth link for a moment, and their audio stops. Do not connect during a call. |
+| **Microphone** | During a session, the app keeps Mac sound and the microphone off all AirPods. It restores them when the session ends. |
+| **Cursor size** | A cursor smaller than 2× grows to 2× while you point. It returns to its size when you pause or disconnect. After a force quit, it returns when you next open the app. This uses a private macOS call. |
 
 ## Requirements
 
@@ -29,6 +29,7 @@ uses private Apple protocols, so a macOS or AirPods update can stop it working.
 |---|---|
 | AirPods Pro 3, macOS 26, Apple Silicon | Tested on one Mac with one pair |
 | AirPods Pro 2 | Recognized, not tested |
+| AirPods paired with your Mac | Required |
 | Xcode | Required to build |
 
 Normal connect and disconnect have run many times on that Mac and pair. These
@@ -54,9 +55,13 @@ If AirPointer does not appear in the Accessibility list after a rebuild, run:
 tccutil reset Accessibility local.airpointer
 ```
 
-## How to use it
+## Set it up
 
-The first time you open the app, setup has four steps:
+The first time you open the app, setup has four steps.
+
+<p align="center">
+  <img src="Assets/Readme/setup.png" width="100%" alt="The four setup steps: Allow, Connect, Calibrate and Tap">
+</p>
 
 1. **Allow:** Drag AirPointer into the Accessibility list. This lets it move the
    cursor and click.
@@ -65,8 +70,19 @@ The first time you open the app, setup has four steps:
 3. **Calibrate:** Point at three dots to show the app where your screen is.
 4. **Tap:** Tap the front of the case three times.
 
-After that, press **fn ⌃** in any app to connect. Press it again to pause or
-resume. To use a different shortcut, go to Settings.
+## Use it
+
+Press **fn ⌃** in any app to connect. Press it again to pause or resume. To use a
+different shortcut, go to Settings.
+
+<p align="center">
+  <img src="Assets/Readme/screens.png" width="100%" alt="The AirPointer window, the menu bar panel, and the notch while pointing">
+</p>
+
+A session ends 30 minutes after the lid closes. To continue, open and close the lid.
+
+<details>
+<summary><strong>The connect steps as a chart</strong></summary>
 
 ```mermaid
 flowchart TD
@@ -83,6 +99,19 @@ flowchart TD
     Pointing -->|"fn ⌃"| Paused(["Paused"])
     Paused -->|"fn ⌃"| Pointing
 ```
+
+</details>
+
+## Troubleshooting
+
+| Problem | What to do |
+|---|---|
+| The app does not connect | Turn off Bluetooth on your iPhone. Your iPhone can hold the AirPods. |
+| "Connecting" does not end | Open the lid and keep it open until the app tells you to close it. |
+| The pointer lags or motion stops | Make sure no other app, such as OBS or a browser call, uses the AirPods as a microphone. |
+| The pointer stutters just after you connect | This is normal for about 20 seconds. |
+| "Set it down" takes a long time | Use a firm, flat surface and do not touch the case. |
+| Taps do not click | Go to Settings > Teach Tap. Do this again if you change how you hold the case. |
 
 ## How it works
 
@@ -133,35 +162,36 @@ flowchart LR
 
 If motion stops for less than two seconds, the pointer stops and then continues.
 If motion stops for longer, the pointer pauses and continues when motion returns.
-A session ends 30 minutes after the lid closes. To continue, open and close the lid.
 
-## Code map
+## Project layout
 
-| File | Purpose |
-|---|---|
-| `ClosedCase/CaseSustainedRenewal.m` | Builds `ClosedCaseMotion.bin`, the helper that talks to the AirPods. Lists its exit codes at the top. |
-| `ClosedCaseRestore.swift` | Brings the ordinary Bluetooth link up. |
-| `ClosedCaseAirPods.swift` | Finds the paired AirPods. |
-| `ClosedCaseSession.swift` | Runs a session, reads motion data, and moves the cursor. |
-| `ClosedCase/Orientation.js`, `MotionLearning.swift` | Motion math. |
-| `ClosedCaseTap.swift` | Finds taps and learns their direction. |
-| `AudioOutputGuard.swift` | Keeps sound and the microphone off the AirPods during a session. |
-| `CursorSize.swift` | Grows a small cursor while you point. |
-| `PointerShortcut.swift` | The shortcut and its control in Settings. |
-| `AirPointer.swift`, `AppHome.swift` | Start the app and connect the session to its windows. |
-| `AirPointerHome.swift`, `StatusBarUI.swift`, `NotchFlow.swift` | The window and Settings, the menu bar, and the notch. |
-| `SetupAssistant.swift`, `AccessibilityGuide.swift`, `CaseLessons.swift` | Setup, the panel over System Settings, and calibration. |
-| `RemoteKit.swift` | Shared interface components. |
-| `TapTest.swift` | The Tap Test, for developers. |
-| `Checks.swift`, `HomeChecks.swift`, `ClosedCase/TapFixtures.csv` | Offline checks and their test data. |
-| `Assets/` | Images, sounds and the 3D case model. See [Assets/README.md](Assets/README.md). |
-| `render-closed-case.py`, `seat-earbuds.py` | Make the onboarding case images from the 3D model. These need Blender. The app uses the finished images. |
+```text
+Sources/
+  AirPointer/          The app
+    App/               Startup, the link to the windows, and the shortcut
+    Session/           The session, motion math, taps, audio guard, cursor size
+    Interface/         The window, menu bar, notch, setup and Tap Test
+    Checks/            Offline checks, built into the app
+  ClosedCaseMotion/    The helper that talks to the AirPods
+  ClosedCaseRestore/   The helper that brings the Bluetooth link up
+Tests/                 Recorded taps and handling for the tap check
+Assets/                Images, sounds and the 3D case model
+Scripts/               Make the case and README images
+Docs/                  The design system
+build.sh               Builds AirPointer.app and runs the checks
+```
 
-[DESIGN-SYSTEM.md](DESIGN-SYSTEM.md) has the rules for the interface.
+`Sources/ClosedCaseMotion/CaseSustainedRenewal.m` lists the helper's exit codes at
+the top. [Docs/DESIGN-SYSTEM.md](Docs/DESIGN-SYSTEM.md) has the rules for the
+interface. [Assets/README.md](Assets/README.md) explains the images and sounds.
 
-## Data on your Mac
+## For developers
 
-The app keeps its data in `~/Library/Application Support/AirPointer/`.
+<details>
+<summary><strong>Data on your Mac</strong></summary>
+
+The app keeps its data in `~/Library/Application Support/AirPointer/`. It does not
+send any of this anywhere.
 
 | File | Contents |
 |---|---|
@@ -171,8 +201,6 @@ The app keeps its data in `~/Library/Application Support/AirPointer/`.
 | `PointerSessions/` | Logs from the newest ten sessions |
 | `TapTests.jsonl` | Tap Test scores |
 
-The app does not send any of this anywhere.
-
 In a session's `native.log`:
 
 - `STEP` lines show the time of each connection step.
@@ -180,18 +208,10 @@ In a session's `native.log`:
 - `tap` lines explain each tap.
 - The `EXIT` line shows why the session ended.
 
-## Troubleshooting
+</details>
 
-| Problem | What to do |
-|---|---|
-| The app does not connect | Turn off Bluetooth on your iPhone. Your iPhone can hold the AirPods. |
-| "Connecting" does not end | Open the lid and keep it open until the app tells you to close it. |
-| The pointer lags or motion stops | Make sure no other app, such as OBS or a browser call, uses the AirPods as a microphone. |
-| The pointer stutters just after you connect | This is normal for about 20 seconds. |
-| "Set it down" takes a long time | Use a firm, flat surface and do not touch the case. |
-| Taps do not click | Go to Settings > Teach Tap. Do this again if you change how you hold the case. |
-
-## Tap Test
+<details>
+<summary><strong>Tap Test</strong></summary>
 
 Taps are tuned on one person so far, so your score may differ.
 
@@ -205,7 +225,10 @@ records up to about 20 MB.
 defaults write local.airpointer recordMotion -bool true
 ```
 
-## Offline checks
+</details>
+
+<details>
+<summary><strong>Offline checks</strong></summary>
 
 These checks do not use Bluetooth.
 
@@ -214,9 +237,11 @@ AirPointer.app/Contents/MacOS/AirPointer --check-home
 AirPointer.app/Contents/MacOS/AirPointer --check-pointer-settings
 AirPointer.app/Contents/MacOS/AirPointer --check-closed-case-native
 AirPointer.app/Contents/MacOS/AirPointer --check-audio-output-policy
-AirPointer.app/Contents/MacOS/AirPointer --check-closed-case-tap ClosedCase/TapFixtures.csv
+AirPointer.app/Contents/MacOS/AirPointer --check-closed-case-tap Tests/TapFixtures.csv
 AirPointer.app/Contents/Resources/ClosedCaseMotion.bin --self-test
 ```
+
+</details>
 
 ## Uninstall
 
@@ -232,5 +257,5 @@ tccutil reset BluetoothAlways local.airpointer
 ## License
 
 The code uses the [MIT License](LICENSE). The license does not cover `Assets/`.
-Apple owns the AirPods model that the case images and app icon are made from, and
-the sounds have their own license. See [Assets/README.md](Assets/README.md).
+Apple owns the AirPods model that the case images are made from, and the sounds
+have their own license. See [Assets/README.md](Assets/README.md).
