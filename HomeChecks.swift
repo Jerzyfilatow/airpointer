@@ -111,6 +111,7 @@ func runHomeChecks()throws {
     try require(changedSettings?.clickSound==false && changedSettings?.speed==1.6,"The click sound switch did not change only the click sound")
     try require(TapClickSound.shared.loaded,"The app bundle has no tap click sound")
     try require(NotchShimmerSound.shared.loaded,"The app bundle has no notch shimmer")
+    try require(Bundle.main.url(forResource:"LICENSE-cuelume",withExtension:"txt") != nil,"The app bundle has no license for its sounds")
     let gear=home.window.toolbar?.items.first{$0.label=="Settings"}
     try require(gear?.toolTip?.hasPrefix("Settings")==true,"Settings is not a single toolbar button")
     // Pointer and Settings are the only pages, so the toolbar is just the gear: no section tabs.

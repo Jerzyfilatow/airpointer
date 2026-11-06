@@ -15,8 +15,10 @@ the case images come from.
 
 ## Sources and licenses
 
-- The case images are renders of Apple's AirPods Pro 3 AR model. Apple owns the
-  model and its materials.
+The MIT License at the top of this project does not cover this folder.
+
+- The case images and app icon are renders of Apple's AirPods Pro 3 AR model. Apple
+  owns the model and its materials.
   [Download it from Apple](https://www.apple.com/105/media/us/airpods-pro/2025/7acffb13-4adb-40b1-9393-8f1c99bc6c90/ar/airpods-pro.usdz),
   linked from the [AirPods Pro specs page](https://www.apple.com/airpods-pro/specs/).
 - The two sounds use parts from cuelume, MIT license, (c) 2026 Daniel Belyi. See

@@ -8,6 +8,7 @@ cp Assets/CaseFront.png Assets/AppIcon.icns AirPointer.app/Contents/Resources/
 for frame in Assets/CaseLid/lid-*.png; do cp "$frame" "AirPointer.app/Contents/Resources/Case${frame:t:r:s/lid/Lid/}.png"; done
 cp Assets/TapClick/click.wav AirPointer.app/Contents/Resources/TapClick.wav
 cp Assets/NotchShimmer.wav AirPointer.app/Contents/Resources/NotchShimmer.wav
+cp Assets/TapClick/LICENSE-cuelume.txt AirPointer.app/Contents/Resources/LICENSE-cuelume.txt
 clang -fobjc-arc -Wall -Wextra -Werror -framework Foundation -framework CoreBluetooth -framework IOBluetooth ClosedCase/CaseSustainedRenewal.m -o AirPointer.app/Contents/Resources/ClosedCaseMotion.bin
 xcrun swiftc -swift-version 5 -O ClosedCaseRestore.swift -o AirPointer.app/Contents/Resources/ClosedCaseRestore.bin -framework Foundation -framework CoreBluetooth -framework IOBluetooth
 cp ClosedCase/Orientation.js AirPointer.app/Contents/Resources/ClosedCaseOrientation.js

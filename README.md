@@ -229,3 +229,9 @@ defaults delete local.airpointer
 tccutil reset Accessibility local.airpointer
 tccutil reset BluetoothAlways local.airpointer
 ```
+
+## License
+
+The code uses the [MIT License](LICENSE). The license does not cover `Assets/`.
+Apple owns the AirPods model that the case images and app icon are made from, and
+the sounds have their own license. See [Assets/README.md](Assets/README.md).
