@@ -81,8 +81,8 @@ different shortcut, go to Settings.
   <img src="Assets/Readme/screens.png" width="100%" alt="The AirPointer window, the menu bar panel, and the notch while pointing">
 </p>
 
-On the tested AirPods, a session ends about 30 minutes after the lid closes. The app
-does not set this limit. To continue, open and close the lid.
+On the tested AirPods, a session ends about 30 minutes after the lid closes. To
+continue, open and close the lid. See [Known limitations](#known-limitations).
 
 <details>
 <summary><strong>The connect steps as a chart</strong></summary>
@@ -104,6 +104,27 @@ flowchart TD
 ```
 
 </details>
+
+## Known limitations
+
+**Sessions end about 30 minutes after the lid closes.** The app does not set this
+limit. At that point motion stops, and the AirPods stay unreachable until you open
+the lid. To continue, open and close the lid. In one test, reconnecting with the lid
+closed did not reset the limit.
+
+The likely cause is timer `0x63` in the earbud firmware. We found it by reading
+`rkof.bin` (H2, version 9A348), the firmware image for the tested AirPods Pro 3:
+
+| Address | What it does |
+|---|---|
+| `0x17d2a4` | Builds a status mask. It starts the timer if the mask is nonzero, the state check passes and the timer is not already running. It cancels the timer if the mask is zero. |
+| `0x17d326` | Loads the timer's length: 1,800,000 ms, or 30 minutes. |
+| `0x17d294` | The state check: the firmware's dock state equals 6. This probably means docked with the lid closed. |
+| `0x17cddc` | Runs when the timer ends. It checks the state again, then calls a fatal assert that does not return. |
+
+Measured sessions ended at the same time, about 1,805 seconds after the lid closed.
+This comes from reading the firmware and from those timings. No live capture has
+confirmed it yet.
 
 ## Troubleshooting
 
