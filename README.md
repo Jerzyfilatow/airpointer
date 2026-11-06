@@ -29,7 +29,6 @@ uses private Apple protocols, so a macOS or AirPods update can stop it working.
 |---|---|
 | AirPods Pro 3, macOS 26, Apple Silicon | Tested on one Mac with one pair |
 | AirPods Pro 2 | Recognized, not tested |
-| macOS 14 and 15 | Allowed, not tested |
 | Xcode | Required to build |
 
 Normal connect and disconnect have run many times on that Mac and pair. These
