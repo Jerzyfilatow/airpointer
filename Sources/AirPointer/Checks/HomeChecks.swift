@@ -122,6 +122,12 @@ func runHomeChecks()throws {
     try require(primary().title=="Resume" || primary().title=="Start Pointing","Settings had no way back to the pointer")
     home.selectSettings();home.window.onEscape?()
     try require(primary().title=="Resume" || primary().title=="Start Pointing","Esc did not leave Settings")
+    // Every step that offers Cancel (esc) answers to it.
+    for phase in [HomeControlPhase.running,.connecting,.closedCase(.openLid),.closedCase(.turnUpright),.closedCase(.holdStill)] {
+        home.updateControl(phase:phase,inputsReady:false)
+        let before=controlPresses;home.window.onEscape?()
+        try require(controlPresses==before+1,"Esc did nothing during \(phase)")
+    }
     home.updateControl(phase:.connecting,inputsReady:false)
     try require(words().contains("Keep the lid open for a moment.") && !words().contains("sound"),"The pointer’s connection still waited for audio")
     for phase in [HomeControlPhase.needsInputs,.connecting,.needsAccessibility,.ready,.running,.paused("Paused"),.closedCase(.openLid),.closedCase(.closeLid),.closedCase(.turnUpright),.closedCase(.holdStill),.closedCase(.calibrate),.closedCase(.recenter)] {
@@ -227,6 +233,41 @@ func runHomeChecks()throws {
     try retired(setupViews(),"Setup’s last step")
     finish?.performClick(nil)
     try require(finished==1,"Finish did not end setup")
+    // Finish and Skip for Now both wait for Accessibility, since the pointer can't move without it.
+    assistant.update(SetupState(link:.connected,calibrated:true,taps:SetupTaps(heard:3,learned:true)));assistant.go(to:3)
+    setupViews().compactMap{$0 as? RemoteButton}.first{$0.style == .primary}?.performClick(nil)
+    try require(finished==1 && assistant.step==0,"Setup finished without Accessibility")
+
+    // Nobody connects before setup's Connect step has said what a session does, and each kind of ending says why somewhere.
+    let defaults=UserDefaults.standard,firstRunKeys=["setupComplete","connectEffectsSeen"]
+    let firstRunPrior=Dictionary(uniqueKeysWithValues:firstRunKeys.map{($0,defaults.object(forKey:$0))})
+    defer{for key in firstRunKeys{if let value=firstRunPrior[key]{defaults.set(value,forKey:key)}else{defaults.removeObject(forKey:key)}}}
+    for key in firstRunKeys{defaults.removeObject(forKey:key)}
+    let app=App();defer{app.setup?.window.orderOut(nil);app.home?.window.orderOut(nil)}
+    try require(app.showConnectEffectsFirst() && app.setup?.window.isVisible == true && app.setup?.step == (AXIsProcessTrusted() ? 1:0),"A first connection should open setup’s Connect step")
+    func appWindow(_ text:String,on window:NSWindow?)->Bool{descendants(window!.contentView!).contains{($0 as? NSTextField)?.stringValue.contains(text)==true}}
+    try require(appWindow("diagnostic data",on:app.setup?.window) || !AXIsProcessTrusted(),"The first connection should show what a session does")
+    app.reportEnded("Reason during setup.",fromNotch:false)
+    try require(app.home == nil,"Setup says why on its own step, so the window should stay closed")
+    app.setup?.window.close()
+    app.reportEnded("Reason in the notch.",fromNotch:true)
+    try require(app.home == nil,"The notch says why for its own sessions, so the window should stay closed")
+    app.reportEnded("Reason for the window.",fromNotch:false)
+    try require(app.home?.window.isVisible == true && appWindow("Reason for the window.",on:app.home?.window),"A closed window should open to say why the connection ended")
+    defaults.set(true,forKey:"connectEffectsSeen")
+    try require(!app.showConnectEffectsFirst() && app.setup == nil,"Someone who pressed Connect shouldn’t be sent back to setup")
+    defaults.removeObject(forKey:"connectEffectsSeen");defaults.set(true,forKey:"setupComplete")
+    try require(!app.showConnectEffectsFirst() && app.setup == nil,"Finished setup shouldn’t be reopened to connect")
+
+    // The notch shows every failure in full.
+    let ending=NotchSurface();ending.frame=NSRect(x:0,y:0,width:360,height:NotchFlow.body+32)
+    for reason in (0...60).flatMap({[ClosedCaseAirPods.helperFailure(Int32($0),stopping:false),ClosedCaseAirPods.restoreFailure(Int32($0))]}).compactMap({$0}) {
+        ending.show(.ended(reason),fade:false);ending.layoutSubtreeIfNeeded()
+        let shown=descendants(ending).compactMap{$0 as? NSTextField}.first{$0.stringValue==reason}
+        let whole=rkWrap(reason,12);whole.maximumNumberOfLines=0
+        let needed=whole.cell!.cellSize(forBounds:NSRect(x:0,y:0,width:shown?.frame.width ?? 0,height:400)).height
+        try require(shown != nil && ceil(needed)<=shown!.frame.height,"The notch cuts off: \(reason)")
+    }
 
     // The menu-bar popover: aim pad, Recenter, Pause and speed, then its rows. No mode and nothing to teach.
     let popover=MenuBarContentController()
@@ -329,7 +370,7 @@ func runHomeChecks()throws {
         final class Wallpaper:NSView{override func draw(_ dirtyRect:NSRect){NSColor(srgbRed:0.36,green:0.42,blue:0.52,alpha:1).setFill();bounds.fill();NSColor(white:1,alpha:0.18).setFill();NSRect(x:0,y:bounds.height-32,width:bounds.width,height:32).fill()}}
         let notchSteps:[(String,NotchContent,Double)]=[("open-lid",NotchContent.connecting(.openLid,preparing:false)!,1.2),("looking",NotchContent.connecting(.connecting,preparing:false)!,0.8),
             ("close-lid",NotchContent.connecting(.closeLid,preparing:false)!,1.2),("turn",NotchContent.connecting(.settling,preparing:false)!,1.25),
-            ("aim",NotchContent.connecting(.calibrating,preparing:false)!,0),("pointing",.pointing,0),("ended",.ended("AirPointer stopped waiting for the lid. Connect again when you’re ready."),0)]
+            ("aim",NotchContent.connecting(.calibrating,preparing:false)!,0),("pointing",.pointing,0),("ended",.ended("AirPointer stopped waiting for the lid. Connect again when you’re ready."),0),("ended-long",.ended(ClosedCaseAirPods.helperFailure(30,stopping:false)!),0)]
         let notchRow=NotchFlow.body+32+20
         let notchSheet=Wallpaper(frame:NSRect(x:0,y:0,width:440,height:CGFloat(notchSteps.count)*notchRow))
         for (index,(_,content,time)) in notchSteps.enumerated() {

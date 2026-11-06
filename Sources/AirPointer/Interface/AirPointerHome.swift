@@ -5,9 +5,20 @@ import AppKit
 enum ClosedCaseStep:Equatable {case openLid,closeLid,turnUpright,holdStill,calibrate,recenter}
 enum HomeControlPhase:Equatable {case needsInputs,connecting,needsAccessibility,ready,running,paused(String),closedCase(ClosedCaseStep)}
 
+extension NSScreen {
+    // Stays the same across unplugging and reordering, unlike the place in NSScreen.screens.
+    var displayID:String? {
+        guard let number=deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber,
+              let uuid=CGDisplayCreateUUIDFromDisplayID(number.uint32Value)?.takeRetainedValue() else{return nil}
+        return CFUUIDCreateString(nil,uuid) as String
+    }
+}
+
 struct PointerSettingsState:Equatable {
     var screens:[String]=[]
     var screen=0
+    // The display someone picked in Settings. While it's unplugged the pointer uses another, and this waits for it to return.
+    var screenID:String?=nil
     // Paired AirPods Pro by name; -1 until one is chosen among several.
     var pairs:[String]=[]
     var pair=0
@@ -21,6 +32,12 @@ struct PointerSettingsState:Equatable {
     private static let clickSoundKey="tapClickSound"
     private static let tapDirectionKey="tapDirection"
     private static let screenKey="pointerScreen"
+    private static let screenIDKey="pointerScreenID"
+
+    static func screenIndex(chosen:String?,current:Int,in displays:[String?])->Int {
+        if let chosen,let found=displays.firstIndex(of:chosen){return found}
+        return max(0,min(current,displays.count-1))
+    }
 
     static func loadPersisted()->PointerSettingsState {
         var value=PointerSettingsState()
@@ -30,6 +47,7 @@ struct PointerSettingsState:Equatable {
         value.clickSound=UserDefaults.standard.object(forKey:clickSoundKey) as? Bool ?? true
         value.tapDirection=(UserDefaults.standard.array(forKey:tapDirectionKey) as? [Double]).flatMap{$0.count==3 ? $0:nil}
         if let saved=UserDefaults.standard.object(forKey:screenKey) as? Int{value.screen=max(0,saved)}
+        value.screenID=UserDefaults.standard.string(forKey:screenIDKey)
         return value
     }
 
@@ -40,27 +58,37 @@ struct PointerSettingsState:Equatable {
         UserDefaults.standard.set(clickSound,forKey:Self.clickSoundKey)
         if let tapDirection{UserDefaults.standard.set(tapDirection,forKey:Self.tapDirectionKey)}else{UserDefaults.standard.removeObject(forKey:Self.tapDirectionKey)}
         UserDefaults.standard.set(screen,forKey:Self.screenKey)
+        if let screenID{UserDefaults.standard.set(screenID,forKey:Self.screenIDKey)}else{UserDefaults.standard.removeObject(forKey:Self.screenIDKey)}
     }
 }
 
 func runPointerSettingsChecks()throws {
     let defaults=UserDefaults.standard
-    let keys=["pointerSensitivity","tapClickSound","pointerScreen","tapDirection"]
+    let keys=["pointerSensitivity","tapClickSound","pointerScreen","pointerScreenID","tapDirection"]
     let prior=Dictionary(uniqueKeysWithValues:keys.map{($0,defaults.object(forKey:$0))})
     defer{for key in keys{if let value=prior[key]{defaults.set(value,forKey:key)}else{defaults.removeObject(forKey:key)}}}
     defaults.removeObject(forKey:"pointerSensitivity")
     defaults.removeObject(forKey:"tapClickSound")
     defaults.removeObject(forKey:"pointerScreen")
+    defaults.removeObject(forKey:"pointerScreenID")
     defaults.removeObject(forKey:"tapDirection")
     let fresh=PointerSettingsState.loadPersisted()
-    guard fresh.speed==1,fresh.clickSound,fresh.screen==0,fresh.tapDirection==nil else{
+    guard fresh.speed==1,fresh.clickSound,fresh.screen==0,fresh.screenID==nil,fresh.tapDirection==nil else{
         throw LessonError.message("Default pointer settings should be speed 1, click sound on, screen 0.")
     }
-    var sample=PointerSettingsState(screen:1,speed:1.4,clickSound:false,tapDirection:[0.6,0,-0.8])
+    var sample=PointerSettingsState(screen:1,screenID:"side",speed:1.4,clickSound:false,tapDirection:[0.6,0,-0.8])
     sample.clampSpeed();sample.persist()
     let loaded=PointerSettingsState.loadPersisted()
-    guard abs(loaded.speed-1.4)<1e-9,!loaded.clickSound,loaded.screen==1,loaded.tapDirection==[0.6,0,-0.8] else{
+    guard abs(loaded.speed-1.4)<1e-9,!loaded.clickSound,loaded.screen==1,loaded.screenID=="side",loaded.tapDirection==[0.6,0,-0.8] else{
         throw LessonError.message("Pointer settings did not round-trip through UserDefaults.")
+    }
+    // The chosen display wherever it now sits; with it unplugged, a display that exists; with no choice, the same place.
+    guard PointerSettingsState.screenIndex(chosen:"side",current:0,in:["main","other","side"])==2,
+          PointerSettingsState.screenIndex(chosen:"side",current:2,in:["main","other"])==1,
+          PointerSettingsState.screenIndex(chosen:"side",current:1,in:[nil,"other"])==1,
+          PointerSettingsState.screenIndex(chosen:nil,current:1,in:["main","other"])==1,
+          PointerSettingsState.screenIndex(chosen:"side",current:3,in:[])==0 else{
+        throw LessonError.message("The chosen display wasn’t found after the displays changed.")
     }
 }
 
@@ -335,7 +363,7 @@ final class AirPointerHome:NSObject,NSWindowDelegate {
 
     private func handleEscape() {
         switch phase {
-        case .running,.connecting,.closedCase(.turnUpright),.closedCase(.holdStill):onControl?();return
+        case .running,.connecting,.closedCase(.openLid),.closedCase(.turnUpright),.closedCase(.holdStill):onControl?();return
         default:break
         }
         if page == .settings{present(.pointer)}

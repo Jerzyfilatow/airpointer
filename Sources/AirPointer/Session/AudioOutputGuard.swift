@@ -31,6 +31,11 @@ struct PointerAudioOutputPolicy{
     private var preferred:[ProtectedAudioRole:String]=[:]
     private var moved:[ProtectedAudioRole:(from:String,to:String)]=[:]
     init(targetAddress:String?){self.targetAddress=targetAddress}
+    // Each moved role as [from,to], in a form that can be saved.
+    var moves:[String:[String]]{
+        get{Dictionary(uniqueKeysWithValues:moved.map{($0.key.rawValue,[$0.value.from,$0.value.to])})}
+        set{moved=[:];for (name,move) in newValue{if let role=ProtectedAudioRole(rawValue:name),move.count==2{moved[role]=(move[0],move[1])}}}
+    }
     private func compact(_ value:String)->String{value.lowercased().filter{$0.isLetter || $0.isNumber}}
     func isAirPods(_ output:PointerAudioDevice)->Bool{
         guard output.transport==kAudioDeviceTransportTypeBluetooth || output.transport==kAudioDeviceTransportTypeBluetoothLE else{return false}
@@ -145,8 +150,10 @@ final class PointerSilentOutput{
 // Keeps the default playback, alert and input devices off the AirPods. An app recording from the default input
 // would otherwise put them in a hands-free call, and motion stops about 2 s later. No audio stream or Bluetooth reconnect.
 // Only a session holds it, from Connect until it ends, and then whatever it moved goes back.
+// The moves outlive the app, so they're saved, and a force quit or crash is put right at the next launch.
 final class AudioOutputGuard{
     static let shared=AudioOutputGuard()
+    private static let movesKey="audioMovesToRestore"
     // Long enough that a session restarting after a drop doesn't move sound back and forth.
     private static let releaseAfter=2.0
     private var inSession=false,sessionChanges=0
@@ -187,17 +194,25 @@ final class AudioOutputGuard{
         self.enforce()
     }}
     func stop(){queue.sync{release()}}
+    func restoreAfterCrash(){queue.async{[self] in
+        guard listener==nil,let saved=UserDefaults.standard.dictionary(forKey:Self.movesKey) as? [String:[String]] else{return}
+        policy.moves=saved;restoreMoves()
+    }}
     private func release(){
         guard listener != nil else{return}
         if let listener{
             for selector in installed{var key=PointerAudioHardware.address(selector);_ = AudioObjectRemovePropertyListenerBlock(PointerAudioHardware.system,&key,queue,listener)}
         }
         installed=[];listener=nil
+        restoreMoves()
+    }
+    private func restoreMoves(){
         for role in ProtectedAudioRole.allCases{
             let devices=PointerAudioHardware.devices(for:role)
             let id=PointerAudioHardware.current(role),current=devices.first{$0.id==id}
             if let back=policy.restoration(for:role,current:current,devices:devices){_ = PointerAudioHardware.select(back,for:role)}
         }
+        UserDefaults.standard.removeObject(forKey:Self.movesKey)
     }
     private func enforce(){
         guard listener != nil else{return}
@@ -205,6 +220,7 @@ final class AudioOutputGuard{
             let devices=PointerAudioHardware.devices(for:role)
             let id=PointerAudioHardware.current(role),current=devices.first{$0.id==id}
             guard let replacement=policy.replacement(for:role,current:current,devices:devices) else{continue}
+            UserDefaults.standard.set(policy.moves,forKey:Self.movesKey)
             _=PointerAudioHardware.select(replacement,for:role)
         }
     }
@@ -249,5 +265,16 @@ func runAudioOutputPolicyChecks(){
     _ = session.replacement(for:.input,current:podsMic,devices:[podsMic,macMic])
     selfCheck(session.restoration(for:.playback,current:speakers,devices:[pods,speakers])==nil)
     selfCheck(session.restoration(for:.input,current:macMic,devices:[podsMic,macMic])?.id==podsMic.id)
-    print("PASS: AirPods UID matching, renamed devices, speaker fallback, independent playback/alerts, preferred-output changes, reconnect IDs, the default input moved off the AirPods, and only what moved going back unless changed since")
+    // After a force quit, a later launch knows only what was saved, and a saved move follows the same rules.
+    _ = session.replacement(for:.playback,current:pods,devices:[pods,speakers])
+    var relaunched=PointerAudioOutputPolicy(targetAddress:nil);relaunched.moves=session.moves
+    selfCheck(relaunched.moves.keys.sorted()==["playback"] && relaunched.restoration(for:.playback,current:speakers,devices:[pods,speakers])?.id==pods.id)
+    selfCheck(relaunched.moves.isEmpty)
+    relaunched.moves=session.moves
+    selfCheck(relaunched.restoration(for:.playback,current:usb,devices:[pods,speakers,usb])==nil,"Someone chose another device since")
+    relaunched.moves=session.moves
+    selfCheck(relaunched.restoration(for:.playback,current:speakers,devices:[speakers])==nil && relaunched.moves.isEmpty,"The AirPods have gone, so the move is forgotten")
+    relaunched.moves=["playback":["only one"],"nothing":["a","b"]]
+    selfCheck(relaunched.moves.isEmpty)
+    print("PASS: AirPods UID matching, renamed devices, speaker fallback, independent playback/alerts, preferred-output changes, reconnect IDs, the default input moved off the AirPods, only what moved going back unless changed since, and saved moves after a force quit")
 }

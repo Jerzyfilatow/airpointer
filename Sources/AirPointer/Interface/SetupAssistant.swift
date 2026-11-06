@@ -309,6 +309,8 @@ final class SetupAssistant:NSObject,NSWindowDelegate {
         case .learnTap:onLearnTap?()
         case .next:go(to:step+1)
         case .finish:
+            // The pointer can't move without Accessibility, so setup isn't done until it's allowed.
+            guard state.accessibilityTrusted else{go(to:0);return}
             onFinish?()
             if window.isVisible{window.close()}
         }

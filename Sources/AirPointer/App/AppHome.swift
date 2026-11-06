@@ -28,19 +28,25 @@ extension App {
             // The state timer stands down while the session owns the input, so the menu bar, HUD and setup follow the session here.
             self.refreshHome();self.refreshStatusBar();self.refreshSetup();self.refreshNotch()
         }
-        // A connection that drops on its own says why above the page; Disconnect stays quiet.
-        session.onEnded={ [weak self] reason in
+        session.onEnded={ [weak self,weak session] reason in
             // The window is often out of sight while pointing, so the notch says what happened and pointing returns once the lid opens and closes.
-            if session.lostContact{
+            if session?.lostContact == true{
                 DispatchQueue.main.async{self?.startClosedPointerSession(ClosedCaseSessionLaunch(fromNotch:true,afterLoss:true))}
                 return
             }
+            // Disconnect stays quiet.
             guard let reason else{return}
-            self?.home?.setNotice(reason)
-            if reason==ClosedCaseAirPods.Choice.several.failure{self?.showHomeSettings()}
+            self?.reportEnded(reason,fromNotch:session?.usesNotch == true)
         }
         home?.setNotice(nil)
         session.beginSession()
+    }
+    // A connection that drops on its own says why: setup on its Connect step, the notch for its own sessions, and the window for the rest, even if it was closed.
+    func reportEnded(_ reason:String,fromNotch:Bool){
+        let inSetup=setup?.window.isVisible == true,several=reason==ClosedCaseAirPods.Choice.several.failure
+        if !inSetup,several || !fromNotch{showHome()}
+        home?.setNotice(reason)
+        if several,!inSetup{showHomeSettings()}
     }
     // Pause keeps the case connected; this is the one way to end the connection on purpose.
     @objc func disconnectClosedCase(){
@@ -79,6 +85,12 @@ extension App {
     }
     var homeInputsReady:Bool{closedCaseSession?.inputReady == true}
     func homeControlAction(){
+        // Without Accessibility the button says Allow, even during a session, so it only ever opens the list.
+        guard AXIsProcessTrusted() else{
+            home?.setNotice(nil)
+            AccessibilityGuide.shared.open()
+            refreshHome();return
+        }
         if let session=closedCaseSession,session.isActive{
             switch session.stage {
             case .closeLid:session.confirmLidClosed()
@@ -89,13 +101,8 @@ extension App {
             }
             refreshHome();return
         }
-        guard !closedCaseOwnsInput else{return}
+        guard !closedCaseOwnsInput,!showConnectEffectsFirst() else{return}
         home?.setNotice(nil)
-        guard AXIsProcessTrusted() else{
-            homePhase = .needsAccessibility;home?.setNotice(nil)
-            AccessibilityGuide.shared.open()
-            refreshHome();return
-        }
         startClosedPointerSession()
     }
     func homeRecenter(){if let session=closedCaseSession,session.isActive{session.recenter()}else{pause();refreshHome()}}
@@ -107,7 +114,8 @@ extension App {
         else if !trusted{homePhase = .needsAccessibility}
         else{homePhase = .needsInputs}
         let title:String
-        if let session=closedCaseSession,session.isActive {
+        if !trusted{title="Allow AirPointer…"}
+        else if let session=closedCaseSession,session.isActive {
             switch session.stage {
             case .pointing:title="Pause"
             case .ready:title="Start Pointing"
@@ -155,7 +163,7 @@ extension App {
         let screenChanged=pointerSettings.screen != next.screen
         pointerSettings.speed=next.speed
         pointerSettings.clickSound=next.clickSound
-        if NSScreen.screens.indices.contains(next.screen){pointerSettings.screen=next.screen}
+        if screenChanged,NSScreen.screens.indices.contains(next.screen){pointerSettings.screen=next.screen;pointerSettings.screenID=NSScreen.screens[next.screen].displayID}
         pointerSettings.persist()
         if screenChanged{pause()}
         if let session=closedCaseSession{applyPointerSettings(pointerSettings,to:session)}
@@ -170,11 +178,19 @@ extension App {
 extension App {
     // First run: setup never finished.
     var needsSetup:Bool{!UserDefaults.standard.bool(forKey:"setupComplete")}
+    // Setup's Connect step says what a session does, so every way to connect goes there until someone has pressed it.
+    func showConnectEffectsFirst()->Bool{
+        guard needsSetup,!UserDefaults.standard.bool(forKey:"connectEffectsSeen") else{return false}
+        showSetup();return true
+    }
     @objc func showSetup(){
         if setup==nil {
             let assistant=SetupAssistant()
             // Setup always connects the closed case.
-            assistant.onConnect={ [weak self] in self?.startClosedPointerSession() }
+            assistant.onConnect={ [weak self] in
+                UserDefaults.standard.set(true,forKey:"connectEffectsSeen")
+                self?.startClosedPointerSession()
+            }
             assistant.onChooseAirPods={ [weak self] in self?.chooseAirPods() }
             assistant.onLidClosed={ [weak self] in self?.closedCaseSession?.confirmLidClosed() }
             assistant.onRequestAccessibility={AccessibilityGuide.shared.open()}
@@ -208,6 +224,7 @@ extension App {
     }
     @objc private func pickAirPods(_ item:NSMenuItem){
         guard let pair=item.representedObject as? ClosedCaseAirPods,(try? ClosedCaseAirPods.save(pair)) != nil else{return}
+        UserDefaults.standard.set(true,forKey:"connectEffectsSeen")
         startClosedPointerSession()
     }
     @objc func runSetupAgain(){pause();showSetup();setup?.go(to:AXIsProcessTrusted() ? 1:0)}
@@ -298,6 +315,12 @@ extension App {
     private func announcePhaseChange(){
         guard homePhase != hudPhase else{return}
         let previous=hudPhase;hudPhase=homePhase
+        // The notch has no step for this, so the HUD says it for every session.
+        switch (previous,homePhase) {
+        case (.running,.needsAccessibility),(.paused,.needsAccessibility):
+            hud.show("Pointer stopped — allow AirPointer in Accessibility",symbol:"hand.raised",on:controlledScreen);return
+        default:break
+        }
         // A session from the notch says it there; the HUD stays for a pointer on another screen.
         if closedCaseSession?.usesNotch == true,let notch,notch.screen == controlledScreen{return}
         switch (previous,homePhase) {

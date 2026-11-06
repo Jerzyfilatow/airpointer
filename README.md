@@ -20,7 +20,7 @@
 | **Case data** | Ending a session uses up the diagnostic data stored on the case. |
 | **AirPods settings** | Some AirPods connection settings stay as the session set them. We do not know yet if this change, or the case data change, lasts after the Bluetooth link resets. |
 | **Audio** | Each connection drops the AirPods' Bluetooth link for a moment, and their audio stops. Do not connect during a call. |
-| **Microphone** | During a session, the app keeps Mac sound and the microphone off all AirPods. It restores them when the session ends. |
+| **Microphone** | During a session, the app keeps Mac sound and the microphone off all AirPods. It restores them when the session ends. After a force quit, it restores them when you next open the app, if the AirPods are still connected. |
 | **Silent audio** | During a session, the app plays silence to the AirPods to keep their audio link active. You do not hear it. |
 | **Cursor size** | A cursor smaller than 2× grows to 2× while you point. It returns to its size when you pause or disconnect. After a force quit, it returns when you next open the app. This uses a private macOS call. |
 
@@ -203,6 +203,9 @@ send any of this anywhere.
 | `closed-case-sensor-calibration.json` | Saved sensor offset, kept for one week |
 | `PointerSessions/` | Logs from the newest ten sessions |
 | `TapTests.jsonl` | Tap Test scores |
+
+During a session, the app's preferences also save which audio devices it moved.
+The saved names include the AirPods' Bluetooth address.
 
 In a session's `native.log`:
 

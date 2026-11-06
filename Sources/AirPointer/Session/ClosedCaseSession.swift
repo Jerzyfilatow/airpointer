@@ -952,7 +952,7 @@ final class ClosedCaseSession: NSObject {
         let done=afterEnd;afterEnd=[];for action in done{action()}
     }
     func shutdown(){
-        stop();let deadline=Date().addingTimeInterval(7)
+        userEnded=true;stop();let deadline=Date().addingTimeInterval(7)
         while helper?.isRunning == true && deadline.timeIntervalSinceNow>0{RunLoop.current.run(until:Date().addingTimeInterval(0.05))}
         if helper?.isRunning == true{helper?.terminate()}
     }

@@ -186,7 +186,7 @@ final class NotchSurface:NSView {
         super.init(frame:.zero);wantsLayer=true;layer?.mask=outline
         art.translatesAutoresizingMaskIntoConstraints=true;art.fill=0.7
         title.alignment = .center;detail.alignment = .center
-        detail.maximumNumberOfLines=2;detail.cell?.truncatesLastVisibleLine=true
+        detail.maximumNumberOfLines=4;detail.cell?.truncatesLastVisibleLine=true
         for view in [art,title,detail,progress,dot] as [NSView]{contents.addSubview(view)}
         addSubview(contents);contents.alphaValue=0
         setAccessibilityElement(true);setAccessibilityRole(.group);setAccessibilityLabel("AirPointer")
@@ -218,7 +218,7 @@ final class NotchSurface:NSView {
         contents.frame=NSRect(x:0,y:visibleBody-body,width:w,height:body)
         // Art, progress, title and line as one centered column, however many lines the line takes.
         let lines=detail.cell?.cellSize(forBounds:NSRect(x:0,y:0,width:textWidth,height:200)).height ?? 16
-        let detailHeight=min(34,ceil(lines)),bars:CGFloat=progress.isHidden ? 0:4+12
+        let bars:CGFloat=progress.isHidden ? 0:4+12,detailHeight=min(body-side-6-bars-20-3,ceil(lines))
         let column=side+6+bars+20+3+detailHeight
         var y=(body+column)/2
         art.frame=NSRect(x:(w-side)/2,y:y-side,width:side,height:side);y-=side+6
@@ -299,6 +299,7 @@ extension App {
             }
             refreshHome();return
         }
+        if showConnectEffectsFirst(){return}
         // Missing Accessibility, or a session already running, goes through the window.
         guard AXIsProcessTrusted(),!closedCaseOwnsInput else{showHome();homeControlAction();return}
         home?.setNotice(nil)
@@ -312,7 +313,7 @@ extension App {
         switch stage {
         case .off:
             if session.isActive{notch.show(.finishing)}
-            else if was != .off || notch.content == .finishing{if let reason=session.endReason{notch.show(.ended(reason),for:4)}else{notch.collapse()}}
+            else if was != .off || notch.content == .finishing{if let reason=session.endReason{notch.show(.ended(reason),for:max(4,Double(reason.count)/15))}else{notch.collapse()}}
         case .pointing:if was != .pointing{notch.show(.pointing,for:1.8)}
         case .ready:if was == .pointing{notch.show(.paused,for:1.6)}else{notch.collapse()}
         // The dots take over: a first calibration, or the case held another way than the saved edges.

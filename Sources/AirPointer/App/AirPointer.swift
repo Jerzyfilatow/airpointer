@@ -45,6 +45,7 @@ final class App: NSObject, NSApplicationDelegate {
             if self?.closedCaseSession?.isActive == true { self?.closedCalibrationDeclined = true; self?.refreshHome() }
         }
         CursorSize.shared.restore()
+        AudioOutputGuard.shared.restoreAfterCrash()
         setupMenu()
         installNotch()
         let stateTimer=Timer(timeInterval:0.08,repeats:true){[weak self] _ in self?.checkState()}
@@ -61,9 +62,7 @@ final class App: NSObject, NSApplicationDelegate {
         pause();showHome();home?.setNotice("Connect your AirPods first, then recalibrate.")
     }
     func refreshScreenList() {
-        let count=NSScreen.screens.count
-        if count==0{pointerSettings.screen=0;return}
-        if pointerSettings.screen>=count{pointerSettings.screen=count-1}
+        pointerSettings.screen=PointerSettingsState.screenIndex(chosen:pointerSettings.screenID,current:pointerSettings.screen,in:NSScreen.screens.map(\.displayID))
     }
     @objc func screensChanged() {
         pause("Your displays changed. Resume when you’re ready."); refreshScreenList(); pointerSettings.persist()
