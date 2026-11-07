@@ -1,6 +1,8 @@
 # Watch-only app draft — UNVERIFIED HARDWARE GATE
 
-**This is not a working Watch product.** Watch model and OS are unknown. Nothing here was built, signed, installed, or run on a device.
+**This is not a working Watch product and not a complete Watch app.** Every Swift file here is wrapped in `#if false` and lives outside `Sources/AirPointer/**/*.swift`, so `build.sh` does not compile it. Watch model and OS are unknown. Nothing here was built, signed, installed, or run on a device.
+
+There is **no** real labelled collector/export, **no** authenticated transport, and **no** Mac GATT receiver in this tree.
 
 ## What this folder is
 

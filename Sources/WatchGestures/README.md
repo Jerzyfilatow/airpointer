@@ -2,9 +2,10 @@
 
 Hardware-free detectors for **orientation-relative** wrist motion:
 
-- Turnover (roll threshold + hysteresis)
-- Angular swipe left/right (slide-change intent)
-- Safe left-click intent (poke jolt, cooldown, suppression during swipe/turnover)
+- Modes: `paused` | `suppress` | `turnover` | `swipe` | `click` | `pointing`
+- Startup, resume, and delivery **gaps** enter suppress until quiet
+- Click is a **rising** poke with **release hysteresis** (sustained pitch does not retrigger every cooldown)
+- Swipe uses **wrapped** yaw deltas; displacement and rate signs must agree
 - Immediate pause
 
 Digital Crown **press** is not used (unsupported public API). Right-click is an in-app button in the Watch draft, not a crown press.
