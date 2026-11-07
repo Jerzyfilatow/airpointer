@@ -62,7 +62,7 @@ Local Watch UI (`WatchLiveMotionView.swift`, `#if false`) may show public Core M
 node Tests/HardwareFree/run.mjs
 ```
 
-Measured (this repair pass, `node` v22.23.4): **17 cases passed, 0 failed; 118 assertions; exit 0**. Repairs used: gestures 1/3, hand-state 2/3, others 0/3. Does not build `AirPointer.app` and does not validate Watch hardware or physiology.
+Measured (repair pass 2, `node` v22.23.4): **20 cases passed, 0 failed; 143 assertions; exit 0**. Repair caps: router pass2 0/3, gestures 1/3 (prior), hand-state 2/3 (no pass2 edits). Does not build `AirPointer.app` and does not validate Watch hardware or physiology.
 
 ## Later Mac sync (not this agent)
 

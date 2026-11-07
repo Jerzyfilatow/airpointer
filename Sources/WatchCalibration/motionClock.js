@@ -28,12 +28,11 @@ export class MotionClock {
         if (sequence != null && (!Number.isInteger(sequence) || sequence < 0)) return {ok: false, reason: 'invalid-sequence'};
         if (this.lastSensorStamp != null && stamp <= this.lastSensorStamp) return {ok: false, reason: 'order-or-replay'};
         if (this.lastSequence != null && sequence != null && sequence <= this.lastSequence) return {ok: false, reason: 'order-or-replay'};
+        if (!Number.isFinite(sensorAgeSeconds)) return {ok: false, reason: 'missing-sensor-age'};
         if (now - host > this.staleSeconds) return {ok: false, reason: 'stale-host'};
         if (host - now > this.futureSlack) return {ok: false, reason: 'host-in-future'};
-        if (Number.isFinite(sensorAgeSeconds)) {
-            if (sensorAgeSeconds > this.staleSeconds) return {ok: false, reason: 'stale-sensor'};
-            if (sensorAgeSeconds < -this.futureSlack) return {ok: false, reason: 'sensor-in-future'};
-        }
+        if (sensorAgeSeconds > this.staleSeconds) return {ok: false, reason: 'stale-sensor'};
+        if (sensorAgeSeconds < -this.futureSlack) return {ok: false, reason: 'sensor-in-future'};
         this.lastSensorStamp = stamp;
         if (sequence != null) this.lastSequence = sequence;
         return {ok: true, reason: null};

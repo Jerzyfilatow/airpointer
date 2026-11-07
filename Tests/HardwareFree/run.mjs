@@ -101,14 +101,16 @@ test('airpods-orientation-regression', () => {
     assert(Math.abs(seeded.bias[0] - 0.55) < 0.005 && seeded.measured === 1, 'later offset gentle');
 });
 
-function liveMeta(r, t, seq) {
+function liveMeta(r, t, seq, extra = {}) {
     return {
         sessionId: r.sessionId,
         generation: r.generation,
         sensorStamp: t,
         hostReceived: t,
         receiverNow: t,
-        sequence: seq
+        sensorAgeSeconds: 0,
+        sequence: seq,
+        ...extra
     };
 }
 
@@ -150,15 +152,48 @@ test('router-pause-disconnect-generation-clock', () => {
 
 test('clock-sensor-vs-receiver', () => {
     const c = new MotionClock({staleSeconds: 0.5});
-    assert(c.accept({sensorStamp: 1, hostReceived: 10, receiverNow: 10.1, sequence: 1}).ok, 'first ok');
-    assert(c.accept({sensorStamp: 1, hostReceived: 10.2, receiverNow: 10.2, sequence: 2}).reason === 'order-or-replay', 'replay stamp');
-    assert(c.accept({sensorStamp: 2, hostReceived: 10.2, receiverNow: 10.2, sequence: 1}).reason === 'order-or-replay', 'replay sequence');
-    assert(c.accept({sensorStamp: 2, hostReceived: 10, receiverNow: 11, sequence: 3}).reason === 'stale-host', 'stale host');
-    assert(c.accept({sensorStamp: 3, hostReceived: 12, receiverNow: 12, sequence: 4}).ok, 'later ok');
-    assert(c.accept({sensorStamp: NaN, hostReceived: 12, receiverNow: 12, sequence: 5}).reason === 'invalid-stamp', 'nan stamp');
-    assert(c.accept({sensorStamp: 4, hostReceived: 12, sequence: 6}).reason === 'missing-receiver-now', 'now required');
+    assert(c.accept({sensorStamp: 1, hostReceived: 10, receiverNow: 10.1, sequence: 1, sensorAgeSeconds: 0.1}).ok, 'first ok');
+    assert(c.accept({sensorStamp: 1, hostReceived: 10.2, receiverNow: 10.2, sequence: 2, sensorAgeSeconds: 0}).reason === 'order-or-replay', 'replay stamp');
+    assert(c.accept({sensorStamp: 2, hostReceived: 10.2, receiverNow: 10.2, sequence: 1, sensorAgeSeconds: 0}).reason === 'order-or-replay', 'replay sequence');
+    assert(c.accept({sensorStamp: 2, hostReceived: 10, receiverNow: 11, sequence: 3, sensorAgeSeconds: 0}).reason === 'stale-host', 'stale host');
+    assert(c.accept({sensorStamp: 3, hostReceived: 12, receiverNow: 12, sequence: 4, sensorAgeSeconds: 0}).ok, 'later ok');
+    assert(c.accept({sensorStamp: NaN, hostReceived: 12, receiverNow: 12, sequence: 5, sensorAgeSeconds: 0}).reason === 'invalid-stamp', 'nan stamp');
+    assert(c.accept({sensorStamp: 4, hostReceived: 12, sequence: 6, sensorAgeSeconds: 0}).reason === 'missing-receiver-now', 'now required');
+    assert(c.accept({sensorStamp: 5, hostReceived: 13, receiverNow: 13, sequence: 7}).reason === 'missing-sensor-age', 'sensor age required');
     assert(c.accept({sensorStamp: 5, hostReceived: 13, receiverNow: 13, sequence: 7, sensorAgeSeconds: 2}).reason === 'stale-sensor', 'stale sensor age');
     assert(c.accept({sensorStamp: 6, hostReceived: 14, receiverNow: 14, sequence: 8, sensorAgeSeconds: -1}).reason === 'sensor-in-future', 'future sensor');
+});
+
+test('router-mandatory-identity-receipt-sensor-age', () => {
+    const r = new PointerSourceRouter();
+    r.connect({sessionId: 'sess-id'});
+    const base = liveMeta(r, 1, 1);
+    const {sessionId, ...noSession} = base;
+    assert(r.emit('airpods', PointerCommand.move([0, 0], 'main'), noSession) === null && r.lastReject === 'missing-session', `omit session ${r.lastReject}`);
+    const {generation, ...noGen} = liveMeta(r, 1, 1);
+    assert(r.emit('airpods', PointerCommand.move([0, 0], 'main'), noGen) === null && r.lastReject === 'missing-generation', `omit generation ${r.lastReject}`);
+    const {hostReceived, ...noHost} = liveMeta(r, 1, 1);
+    assert(r.emit('airpods', PointerCommand.move([0, 0], 'main'), noHost) === null && r.lastReject === 'invalid-host', `omit host ${r.lastReject}`);
+    const {sensorAgeSeconds, ...noAge} = liveMeta(r, 1, 1);
+    assert(r.emit('airpods', PointerCommand.move([0, 0], 'main'), noAge) === null && r.lastReject === 'missing-sensor-age', `omit sensorAge ${r.lastReject}`);
+    assert(r.emit('airpods', PointerCommand.move([0, 0], 'main'), liveMeta(r, 1, 1, {hostReceived: NaN})) === null && r.lastReject === 'invalid-host', `NaN host ${r.lastReject}`);
+    assert(r.emit('airpods', PointerCommand.move([0, 0], 'main'), liveMeta(r, 1, 1, {receiverNow: NaN})) === null && r.lastReject === 'missing-receiver-now', `NaN now ${r.lastReject}`);
+    assert(r.emit('airpods', PointerCommand.move([0, 0], 'main'), liveMeta(r, 1, 1, {hostReceived: 2, receiverNow: 1})) === null && r.lastReject === 'host-in-future', `future host ${r.lastReject}`);
+    assert(r.emit('airpods', PointerCommand.move([0, 0], 'main'), liveMeta(r, 1, 1, {hostReceived: 1, receiverNow: 1, sensorAgeSeconds: 2})) === null && r.lastReject === 'stale-sensor', `stale sensor fresh host ${r.lastReject}`);
+    assert(r.emit('airpods', PointerCommand.move([0, 0], 'main'), liveMeta(r, 1, 1, {sensorAgeSeconds: -1})) === null && r.lastReject === 'sensor-in-future', `future sensor ${r.lastReject}`);
+
+    assert(r.emit('airpods', PointerCommand.move([0, 0], 'main'), liveMeta(r, 2, 2)), 'fresh move rearms');
+    const {generation: g2, ...clickNoGen} = liveMeta(r, 2.1, 3);
+    assert(r.emit('airpods', PointerCommand.click('left', [0.1, 0.1]), clickNoGen) === null && r.lastReject === 'missing-generation', `old click omit generation ${r.lastReject}`);
+
+    r.select('watch');
+    r.select('airpods');
+    const afterSwitch = liveMeta(r, 3, 4);
+    assert(r.emit('airpods', PointerCommand.click('left', [0.1, 0.1]), afterSwitch) === null && r.lastReject === 'stale-command-before-rearm', `switch-back click ${r.lastReject}`);
+    const {generation: g3, ...switchNoGen} = liveMeta(r, 3.1, 5);
+    assert(r.emit('airpods', PointerCommand.click('left', [0.1, 0.1]), switchNoGen) === null, 'switch-back omit generation');
+    assert(r.lastReject === 'missing-generation' || r.lastReject === 'stale-command-before-rearm', `switch-back omit ${r.lastReject}`);
+    assert(r.emit('airpods', PointerCommand.move([0, 0], 'main'), liveMeta(r, 3.2, 6)), 'rearm after switch-back');
 });
 
 test('cal-all-four-corners-and-skewed', () => {
@@ -314,6 +349,51 @@ test('gestures-resume-and-gap-suppress', () => {
     g2.feed({t: t0 + 0.02, yaw: 0, pitch: 0, roll: 0, yawRate: 0.1, pitchRate: 0.1, rollRate: 0});
     const gapped = g2.feed({t: t0 + 1.5, yaw: 0, pitch: 0, roll: 0, yawRate: 0.1, pitchRate: 8, rollRate: 0});
     assert(!gapped.events.some(e => e.type === 'click'), 'gap suppress');
+});
+
+test('gestures-poke-during-cooldown-held-past-expiry', () => {
+    const g = new WatchGestureDetector();
+    const t0 = quiet(g, 0);
+    const first = g.feed({t: t0 + 0.02, yaw: 0, pitch: 0, roll: 0, yawRate: 0.2, pitchRate: 6, rollRate: 0});
+    assert(first.events.some(e => e.type === 'click'), 'first click');
+    g.feed({t: t0 + 0.04, yaw: 0, pitch: 0, roll: 0, yawRate: 0.1, pitchRate: 0.3, rollRate: 0});
+    const during = g.feed({t: t0 + 0.10, yaw: 0, pitch: 0, roll: 0, yawRate: 0.2, pitchRate: 6, rollRate: 0});
+    assert(!during.events.some(e => e.type === 'click'), 'poke during click cooldown silent');
+    let delayed = 0;
+    for (let i = 1; i <= 16; i++) {
+        const row = g.feed({t: t0 + 0.10 + i * 0.05, yaw: 0, pitch: 0, roll: 0, yawRate: 0.2, pitchRate: 6, rollRate: 0});
+        delayed += row.events.filter(e => e.type === 'click').length;
+    }
+    assert(delayed === 0, `held past click cooldown ${delayed}`);
+
+    const s = new WatchGestureDetector();
+    let t = quiet(s, 0);
+    let swiped = false;
+    for (let i = 1; i <= 10; i++) {
+        t += 0.01;
+        const row = s.feed({t, yaw: i * 0.05, pitch: 0, roll: 0, yawRate: 5, pitchRate: 0.2, rollRate: 0});
+        if (row.events.some(e => e.type === 'swipe')) swiped = true;
+    }
+    assert(swiped, 'need swipe to start cooldown');
+    const pokeSwipe = s.feed({t: t + 0.02, yaw: 0.5, pitch: 0, roll: 0, yawRate: 0.2, pitchRate: 6, rollRate: 0});
+    assert(!pokeSwipe.events.some(e => e.type === 'click'), 'poke during swipe cooldown silent');
+    let afterSwipe = 0;
+    for (let i = 1; i <= 16; i++) {
+        const row = s.feed({t: t + 0.02 + i * 0.05, yaw: 0.5, pitch: 0, roll: 0, yawRate: 0.2, pitchRate: 6, rollRate: 0});
+        afterSwipe += row.events.filter(e => e.type === 'click').length;
+    }
+    assert(afterSwipe === 0, `held past swipe cooldown ${afterSwipe}`);
+});
+
+test('gestures-gap-quiet-no-premature-rearm', () => {
+    const g = new WatchGestureDetector();
+    const t0 = quiet(g, 0);
+    g.feed({t: t0 + 0.02, yaw: 0, pitch: 0, roll: 0, yawRate: 0.05, pitchRate: 0.05, rollRate: 0});
+    const back = g.feed({t: t0 + 1.5, yaw: 0, pitch: 0, roll: 0, yawRate: 0.05, pitchRate: 0.05, rollRate: 0});
+    assert(back.mode === 'suppress', `quiet gap return still suppress (mode ${back.mode})`);
+    assert(g.suppressUntilQuiet === true, 'must not rearm from gap dt');
+    const poke = g.feed({t: t0 + 1.52, yaw: 0, pitch: 0, roll: 0, yawRate: 0.2, pitchRate: 8, rollRate: 0});
+    assert(!poke.events.some(e => e.type === 'click'), 'no click before quiet window after gap');
 });
 
 test('gestures-swipe-left-right-wrap-disagree', () => {

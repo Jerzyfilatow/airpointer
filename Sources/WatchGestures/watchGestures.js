@@ -84,6 +84,7 @@ export class WatchGestureDetector {
             this.clickHeld = false;
             this.history = [];
             this.mode = 'suppress';
+            this.lastT = null;
         }
         const dt = this.lastT == null ? 0 : t - this.lastT;
         this.lastT = t;
@@ -129,11 +130,13 @@ export class WatchGestureDetector {
         if (this.clickHeld && poke <= this.clickRelease) this.clickHeld = false;
         const quietYaw = Math.abs(yawRate) <= this.clickMaxYaw;
         const rising = !this.clickHeld && poke >= this.clickJolt;
-        if (!this.turnover && !recentSwipe && !recentClick && rising && quietYaw) {
-            this.lastClickAt = t;
+        if (rising) {
             this.clickHeld = true;
-            this.mode = 'click';
-            events.push({type: 'click', button: 'left', t});
+            if (!this.turnover && !recentSwipe && !recentClick && quietYaw) {
+                this.lastClickAt = t;
+                this.mode = 'click';
+                events.push({type: 'click', button: 'left', t});
+            }
         }
 
         if (this.turnover) this.mode = 'turnover';

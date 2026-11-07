@@ -1,7 +1,7 @@
 // Shared exclusive-source adapter. NEW file, not referenced by ClosedCaseSession.
 // Mac `build.sh` compiles only Sources/AirPointer/**/*.swift — this folder is outside that glob.
-// UNTESTED on hardware. Logically aligned with pointerRouter.js (session, generation,
-// connected, rearm, clock invalidation). JS is the verified twin.
+// UNTESTED on hardware. Logically aligned with pointerRouter.js (mandatory session,
+// generation, finite receipt, required sensorAgeSeconds, rearm). JS is the verified twin.
 
 public enum PointerInputSource: Equatable {
     case airpods
@@ -26,18 +26,20 @@ public enum PointerSwipeDirection: Equatable {
 }
 
 public struct PointerSampleMeta: Equatable {
-    public var sessionId: String?
-    public var generation: Int?
+    public var sessionId: String
+    public var generation: Int
     public var sensorStamp: Double
     public var hostReceived: Double
     public var receiverNow: Double
+    public var sensorAgeSeconds: Double
     public var sequence: Int?
-    public init(sessionId: String?, generation: Int?, sensorStamp: Double, hostReceived: Double, receiverNow: Double, sequence: Int?) {
+    public init(sessionId: String, generation: Int, sensorStamp: Double, hostReceived: Double, receiverNow: Double, sensorAgeSeconds: Double, sequence: Int?) {
         self.sessionId = sessionId
         self.generation = generation
         self.sensorStamp = sensorStamp
         self.hostReceived = hostReceived
         self.receiverNow = receiverNow
+        self.sensorAgeSeconds = sensorAgeSeconds
         self.sequence = sequence
     }
 }
@@ -53,6 +55,8 @@ public final class PointerSourceRouter {
     public private(set) var lastReject: String?
     private var lastSensorStamp: Double?
     private var lastSequence: Int?
+    private let staleSeconds = 0.5
+    private let futureSlack = 0.05
 
     public init() {}
 
@@ -93,13 +97,18 @@ public final class PointerSourceRouter {
         if !connected { return reject("disconnected") }
         if paused { return reject("paused") }
         if active != source { return reject("inactive-source") }
-        if let sid = meta.sessionId, let cur = sessionId, sid != cur { return reject("session-mismatch") }
-        if let g = meta.generation, g != generation { return reject("stale-generation") }
+        if sessionId == nil || meta.sessionId != sessionId { return reject("session-mismatch") }
+        if meta.generation != generation { return reject("stale-generation") }
         if !meta.receiverNow.isFinite { return reject("missing-receiver-now") }
+        if !meta.hostReceived.isFinite { return reject("invalid-host") }
+        if !meta.sensorAgeSeconds.isFinite { return reject("missing-sensor-age") }
         if !meta.sensorStamp.isFinite || meta.sensorStamp <= 0 { return reject("invalid-stamp") }
         if let last = lastSensorStamp, meta.sensorStamp <= last { return reject("order-or-replay") }
         if let lastSeq = lastSequence, let seq = meta.sequence, seq <= lastSeq { return reject("order-or-replay") }
-        if meta.receiverNow - meta.hostReceived > 0.5 { return reject("stale-host") }
+        if meta.receiverNow - meta.hostReceived > staleSeconds { return reject("stale-host") }
+        if meta.hostReceived - meta.receiverNow > futureSlack { return reject("host-in-future") }
+        if meta.sensorAgeSeconds > staleSeconds { return reject("stale-sensor") }
+        if meta.sensorAgeSeconds < -futureSlack { return reject("sensor-in-future") }
         lastSensorStamp = meta.sensorStamp
         lastSequence = meta.sequence
         switch command {

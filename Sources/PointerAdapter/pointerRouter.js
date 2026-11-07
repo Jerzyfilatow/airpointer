@@ -68,17 +68,19 @@ export class PointerSourceRouter {
         if (!this.connected) return this.reject('disconnected');
         if (this.paused) return this.reject('paused');
         if (this.active !== source) return this.reject('inactive-source');
-        if (meta.sessionId != null && this.sessionId != null && meta.sessionId !== this.sessionId) {
-            return this.reject('session-mismatch');
-        }
-        if (meta.generation != null && meta.generation !== this.generation) {
-            return this.reject('stale-generation');
-        }
+        if (typeof meta.sessionId !== 'string' || !meta.sessionId) return this.reject('missing-session');
+        if (this.sessionId == null || meta.sessionId !== this.sessionId) return this.reject('session-mismatch');
+        if (!Number.isInteger(meta.generation)) return this.reject('missing-generation');
+        if (meta.generation !== this.generation) return this.reject('stale-generation');
+        if (!Number.isFinite(meta.receiverNow)) return this.reject('missing-receiver-now');
+        if (!Number.isFinite(meta.hostReceived)) return this.reject('invalid-host');
+        if (!Number.isFinite(meta.sensorAgeSeconds)) return this.reject('missing-sensor-age');
         const clocked = this.clock.accept({
             sensorStamp: meta.sensorStamp,
-            hostReceived: meta.hostReceived ?? meta.receiverNow,
+            hostReceived: meta.hostReceived,
             receiverNow: meta.receiverNow,
-            sequence: meta.sequence
+            sequence: meta.sequence,
+            sensorAgeSeconds: meta.sensorAgeSeconds
         });
         if (!clocked.ok) return this.reject(clocked.reason);
 
