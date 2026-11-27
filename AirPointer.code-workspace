@@ -1,0 +1,32 @@
+{
+  "folders": [
+    {
+      "name": "1-airpods-untouched",
+      "path": "Sources/AirPointer"
+    },
+    {
+      "name": "2-shared-adapter",
+      "path": "Sources/PointerAdapter"
+    },
+    {
+      "name": "3-watch-draft",
+      "path": "Sources/WatchPointerDraft"
+    },
+    {
+      "name": "4-calibration",
+      "path": "Sources/WatchCalibration"
+    },
+    {
+      "name": "5-gestures",
+      "path": "Sources/WatchGestures"
+    },
+    {
+      "name": "6-hardware-free-tests",
+      "path": "Tests/HardwareFree"
+    },
+    {
+      "name": "7-hand-state-experimental",
+      "path": "Sources/WatchHandState"
+    }
+  ]
+}

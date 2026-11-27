@@ -198,12 +198,21 @@ Sources/
     Checks/            Window and pose checks; other checks sit beside their code
   ClosedCaseMotion/    The helper that talks to the AirPods
   ClosedCaseRestore/   The helper that brings the Bluetooth link up
+  PointerAdapter/      Isolated exclusive AirPods-or-Watch adapter (not wired)
+  WatchPointerDraft/   Unverified Watch UI + WRITE-transport draft
+  WatchCalibration/    Angular corner + display mapping (hardware-free)
+  WatchGestures/       Turnover / swipe / poke click (hardware-free)
+  WatchHandState/      Experimental OPEN/FIST/REST classifier draft
 Tests/                 Recorded taps and handling for the tap check
+  HardwareFree/        Node algorithm tests (no Apple SDK, no hardware)
 Assets/                Images, sounds and the 3D case model
 Scripts/               Make the case and README images
-Docs/                  The design system
+Docs/                  The design system and isolated Watch pointer guide
+AirPointer.code-workspace  Local Cursor folders for the isolated Watch work
 build.sh               Builds AirPointer.app and runs the checks
 ```
+
+Isolated Watch-pointer drafts live beside the AirPods app. They are **not** a working Watch product, they are **not** compiled by `build.sh`, and they are **not** wired into cursor or click. Open [AirPointer.code-workspace](AirPointer.code-workspace) and read [Docs/WATCH-POINTER-ISOLATED.md](Docs/WATCH-POINTER-ISOLATED.md). There is no established physiological mapping from Watch IMU to an open or closed hand; synthetic classifier scores are not hardware validation. Hardware-free tests: `node Tests/HardwareFree/run.mjs`.
 
 `Sources/ClosedCaseMotion/CaseSustainedRenewal.m` lists the helper's exit codes at
 the top. [Docs/DESIGN-SYSTEM.md](Docs/DESIGN-SYSTEM.md) has the rules for the
